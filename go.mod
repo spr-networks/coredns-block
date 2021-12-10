@@ -1,4 +1,4 @@
-module github.com/SPR-Fi/coredns-block
+module github.com/spr-networks/coredns-block
 
 go 1.16
 
