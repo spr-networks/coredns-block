@@ -18,10 +18,8 @@ import (
 
 var TEST_PREFIX = "/"
 
-var UNIX_PLUGIN_LISTENER = TEST_PREFIX + "/state/api/dns_plugin"
+var UNIX_PLUGIN_LISTENER = TEST_PREFIX + "/state/dns/dns_plugin"
 var CONFIG_PATH = TEST_PREFIX + "/state/dns/block_rules.json"
-
-//  "StevenBlack": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
 
 type ListEntry struct {
 	URI     string
