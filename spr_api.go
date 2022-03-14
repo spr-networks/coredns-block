@@ -16,7 +16,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var TEST_PREFIX = "/tmp/"
+var TEST_PREFIX = "/"
 
 var UNIX_PLUGIN_LISTENER = TEST_PREFIX + "/state/api/dns_plugin"
 var CONFIG_PATH = TEST_PREFIX + "/state/dns/block_rules.json"
