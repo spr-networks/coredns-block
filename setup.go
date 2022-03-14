@@ -11,15 +11,24 @@ import (
 
 var doOnce sync.Once
 
+var super_api = false
+
 func init() { plugin.Register("block", setup) }
 
 func setup(c *caddy.Controller) error {
+	superapi_enabled := false
 	c.Next()
 	if c.NextArg() {
-		return plugin.Error("block", c.ArgErr())
+		arg := c.Val()
+		if (arg == "enable_superapi") {
+			superapi_enabled = true
+		} else {
+			return plugin.Error("block", c.ArgErr())
+		}
 	}
 
 	block := New()
+	block.superapi_enabled = superapi_enabled
 
 	c.OnStartup(func() error {
 
@@ -28,8 +37,21 @@ func setup(c *caddy.Controller) error {
 		doOnce.Do(func() {
 			//Multiple server instances could be running, but the plugin only needs
 			//one instance to download and refresh the list
-			go func() { block.download() }()
+			go func() {
+				//spr is enabled
+				if block.superapi_enabled {
+					block.loadSPRConfig()
+				}
+
+				block.download()
+
+				if block.superapi_enabled {
+					block.runAPI()
+				}
+			}()
+
 			go func() { block.refresh() }()
+
 		})
 
 		return nil

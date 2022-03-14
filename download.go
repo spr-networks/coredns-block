@@ -7,12 +7,22 @@ import (
 )
 
 // our default block lists.
-var blocklist = map[string]string{
-"StevenBlack": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
-}
+var blocklist = []string {"https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"}
 
 func (b *Block) download() {
 	domains := 0
+
+	if (b.superapi_enabled) {
+		//override blocklist with config
+		blocklist = []string{}
+		for _, entry := range b.config.BlockLists {
+			if entry.Enabled {
+				blocklist = append(blocklist, entry.URI)
+			}
+		}
+	}
+
+
 	for _, url := range blocklist {
 		log.Infof("Block list update started %q", url)
 		resp, err := http.Get(url)
