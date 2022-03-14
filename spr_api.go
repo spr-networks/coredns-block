@@ -105,8 +105,7 @@ func (b *Block) updateOverrides(w http.ResponseWriter, r *http.Request, override
 		found := false
 		for i, _ := range *overrides {
 			if (*overrides)[i].Domain == entry.Domain {
-				(*overrides)[i].ClientIP = entry.ClientIP
-				(*overrides)[i].Expiration = entry.Expiration
+				(*overrides)[i] = entry
 				found = true
 				break
 			}
