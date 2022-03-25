@@ -16,9 +16,9 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var TEST_PREFIX = "/"
+var TEST_PREFIX = os.Getenv("TEST_PREFIX")
 
-var UNIX_PLUGIN_LISTENER = TEST_PREFIX + "/state/dns/dns_plugin"
+var UNIX_PLUGIN_LISTENER = TEST_PREFIX + "/state/dns/dns_block_plugin"
 var CONFIG_PATH = TEST_PREFIX + "/state/dns/block_rules.json"
 
 type ListEntry struct {
@@ -265,6 +265,11 @@ func (b *Block) modifyExclusions(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (b *Block) getMetrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(gMetrics)
+}
+
 func logRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
@@ -283,6 +288,7 @@ func (b *Block) runAPI() {
 	unix_plugin_router.HandleFunc("/blocklists", b.modifyBlockLists).Methods("GET", "PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/exclusions", b.modifyExclusions).Methods("GET", "PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/dump_domains", b.dumpEntries).Methods("GET")
+	unix_plugin_router.HandleFunc("/metrics", b.getMetrics).Methods("GET")
 
 	os.Remove(UNIX_PLUGIN_LISTENER)
 	unixPluginListener, err := net.Listen("unix", UNIX_PLUGIN_LISTENER)

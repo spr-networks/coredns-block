@@ -23,6 +23,13 @@ import (
 
 var log = clog.NewWithPlugin("block")
 
+type BlockMetrics struct {
+	TotalQueries   int64
+	BlockedQueries int64
+}
+
+var gMetrics = BlockMetrics{}
+
 // Block is the block plugin.
 type Block struct {
 	update map[string]struct{}
@@ -48,9 +55,13 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	returnIP := ""
 
+	gMetrics.TotalQueries++
+
 	if b.blocked(state.IP(), state.Name(), &returnIP) {
+		gMetrics.BlockedQueries++
+
 		blockCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
-		log.Infof("Blocked %s", state.Name)
+		log.Infof("Blocked %s", state.Name())
 
 		resp := new(dns.Msg)
 		resp.SetRcode(r, dns.RcodeNameError)
