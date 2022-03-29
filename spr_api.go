@@ -10,6 +10,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"strings"
 )
 
 import (
@@ -27,6 +28,7 @@ type ListEntry struct {
 }
 
 type DomainOverride struct {
+	Type       string // Permit or Block
 	Domain     string //
 	ResultIP   string //ip to return
 	ClientIP   string //target to apply to, '*' for all
@@ -73,7 +75,10 @@ func (b *Block) showConfig(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(b.config)
 }
 
-func (b *Block) updateOverrides(w http.ResponseWriter, r *http.Request, overrides *[]DomainOverride) {
+func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
+
+	var overrides *[]DomainOverride = nil
+
 	if r.Method == http.MethodGet {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(*overrides)
@@ -91,6 +96,15 @@ func (b *Block) updateOverrides(w http.ResponseWriter, r *http.Request, override
 
 	if err != nil {
 		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	if strings.ToLower(entry.Type) == "permit" {
+		overrides = &b.config.PermitDomains
+	} else if strings.ToLower(entry.Type) == "block" {
+		overrides = &b.config.BlockDomains
+	} else {
+		http.Error(w, "Unexpected Override Type", 400)
 		return
 	}
 
@@ -134,13 +148,6 @@ func (b *Block) updateOverrides(w http.ResponseWriter, r *http.Request, override
 		b.saveConfig()
 	}
 
-}
-func (b *Block) modifyBlockDomains(w http.ResponseWriter, r *http.Request) {
-	b.updateOverrides(w, r, &b.config.BlockDomains)
-}
-
-func (b *Block) modifyPermitDomains(w http.ResponseWriter, r *http.Request) {
-	b.updateOverrides(w, r, &b.config.PermitDomains)
 }
 
 func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
@@ -283,8 +290,7 @@ func (b *Block) runAPI() {
 	unix_plugin_router := mux.NewRouter().StrictSlash(true)
 
 	unix_plugin_router.HandleFunc("/config", b.showConfig).Methods("GET")
-	unix_plugin_router.HandleFunc("/block", b.modifyBlockDomains).Methods("GET", "PUT", "DELETE")
-	unix_plugin_router.HandleFunc("/permit", b.modifyPermitDomains).Methods("GET", "PUT", "DELETE")
+	unix_plugin_router.HandleFunc("/override", b.modifyOverrideDomains).Methods("PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/blocklists", b.modifyBlockLists).Methods("GET", "PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/exclusions", b.modifyExclusions).Methods("GET", "PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/dump_domains", b.dumpEntries).Methods("GET")
