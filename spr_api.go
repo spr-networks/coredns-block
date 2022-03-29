@@ -8,9 +8,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
-	"strings"
 )
 
 import (
@@ -78,12 +78,6 @@ func (b *Block) showConfig(w http.ResponseWriter, r *http.Request) {
 func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
 
 	var overrides *[]DomainOverride = nil
-
-	if r.Method == http.MethodGet {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(*overrides)
-		return
-	}
 
 	entry := DomainOverride{}
 	err := json.NewDecoder(r.Body).Decode(&entry)
