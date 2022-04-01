@@ -63,7 +63,7 @@ func (b *Block) download() {
 
 	b.SQL.Exec("VACUUM")
 
-
+	gMetrics.BlockedDomains = int64(domains)
 	log.Infof("Block lists updated: %d domains added", domains)
 }
 

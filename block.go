@@ -26,6 +26,7 @@ var log = clog.NewWithPlugin("block")
 type BlockMetrics struct {
 	TotalQueries   int64
 	BlockedQueries int64
+	BlockedDomains	 int64
 }
 
 var gMetrics = BlockMetrics{}
