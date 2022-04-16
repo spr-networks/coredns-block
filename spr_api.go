@@ -22,6 +22,8 @@ var TEST_PREFIX = os.Getenv("TEST_PREFIX")
 var UNIX_PLUGIN_LISTENER = TEST_PREFIX + "/state/dns/dns_block_plugin"
 var CONFIG_PATH = TEST_PREFIX + "/state/dns/block_rules.json"
 
+var BlocklistMtx sync.Mutex
+
 type ListEntry struct {
 	URI     string
 	Enabled bool
@@ -145,6 +147,8 @@ func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
 }
 
 func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
+	BlocklistMtx.Lock()
+	defer BlocklistMtx.Unlock()
 
 	if r.Method == http.MethodGet {
 		w.Header().Set("Content-Type", "application/json")
