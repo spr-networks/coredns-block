@@ -1,18 +1,18 @@
 package block
 
 import (
+	_ "modernc.org/sqlite"
 	"net/http"
 	"time"
-	_ "modernc.org/sqlite"
 )
 
 // our default block lists.
-var blocklist = []string {"https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"}
+var blocklist = []string{"https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"}
 
 func (b *Block) download() {
 	domains := 0
 
-	if (b.superapi_enabled) {
+	if b.superapi_enabled {
 		//override blocklist with config
 		blocklist = []string{}
 		for _, entry := range b.config.BlockLists {
@@ -21,7 +21,6 @@ func (b *Block) download() {
 			}
 		}
 	}
-
 
 	for _, url := range blocklist {
 		log.Infof("Block list update started %q", url)
@@ -39,26 +38,29 @@ func (b *Block) download() {
 		log.Infof("Block list update finished %q", url)
 	}
 
-
+	log.Infof("Updating database with new domains")
 
 	tx, err := b.SQL.Begin()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	tx.Exec("DELETE FROM domains");
+	tx.Exec("DELETE FROM domains")
 
 	// Update the sqlite database
 	stmt, err := tx.Prepare("INSERT INTO domains(domain) VALUES(?)")
-  if err != nil {
-        log.Fatal(err)
-  }
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for domain, _ := range b.update {
 		stmt.Exec(domain)
 	}
 
+	stmt.Close()
+
 	tx.Commit()
+
 	b.update = make(map[string]struct{})
 
 	b.SQL.Exec("VACUUM")

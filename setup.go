@@ -32,7 +32,9 @@ func setup(c *caddy.Controller) error {
 
 	c.OnStartup(func() error {
 
-		block.setupDB("dns.db?_journal_mode=WAL")
+		//block.setupDB("dns.db?_journal_mode=WAL")
+		//NOTE setupDB sets journal_mode=WAL
+		block.setupDB("file:dns.db")
 
 		doOnce.Do(func() {
 			//Multiple server instances could be running, but the plugin only needs

@@ -236,6 +236,8 @@ func (b *Block) setupDB(filename string) {
 		panic("db nil")
 	}
 
+	db.Exec("PRAGMA journal_mode=WAL;")
+
 	domainsSchema := `CREATE TABLE IF NOT EXISTS domains
 	(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
