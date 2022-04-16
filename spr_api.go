@@ -207,6 +207,8 @@ func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(b.config.BlockLists)
 }
 
 func (b *Block) modifyExclusions(w http.ResponseWriter, r *http.Request) {
