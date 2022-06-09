@@ -25,7 +25,7 @@ var CONFIG_PATH = TEST_PREFIX + "/state/dns/block_rules.json"
 type ListEntry struct {
 	URI     string
 	Enabled bool
-	Tags 	[]string	//tags for which the list applies to
+	Tags    []string //tags for which the list applies to
 }
 
 type DomainOverride struct {
@@ -34,7 +34,7 @@ type DomainOverride struct {
 	ResultIP   string //ip to return
 	ClientIP   string //target to apply to, '*' for all
 	Expiration int64  //if non zero has unix time for when the entry should disappear
-	Tags 				[]string
+	Tags       []string
 }
 
 type SPRBlockConfig struct {
@@ -153,9 +153,9 @@ func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodGet {
 		w.Header().Set("Content-Type", "application/json")
-		BLmtx.Lock()
+		BLmtx.RLock()
 		json.NewEncoder(w).Encode(b.config.BlockLists)
-		BLmtx.Unlock()
+		BLmtx.RUnlock()
 		return
 	}
 
@@ -217,9 +217,9 @@ func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	BLmtx.Lock()
+	BLmtx.RLock()
 	json.NewEncoder(w).Encode(b.config.BlockLists)
-	BLmtx.Unlock()
+	BLmtx.RUnlock()
 }
 
 func (b *Block) modifyExclusions(w http.ResponseWriter, r *http.Request) {
