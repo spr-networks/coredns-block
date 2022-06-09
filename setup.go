@@ -53,6 +53,7 @@ func setup(c *caddy.Controller) error {
 			}()
 
 			go func() { block.refresh() }()
+			go func() { block.refreshTags()}()
 
 		})
 

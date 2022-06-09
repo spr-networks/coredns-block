@@ -27,6 +27,7 @@ var BlocklistMtx sync.Mutex
 type ListEntry struct {
 	URI     string
 	Enabled bool
+	Tags 	[]string	//tags for which the list applies to
 }
 
 type DomainOverride struct {
@@ -35,6 +36,7 @@ type DomainOverride struct {
 	ResultIP   string //ip to return
 	ClientIP   string //target to apply to, '*' for all
 	Expiration int64  //if non zero has unix time for when the entry should disappear
+	Tags 				[]string
 }
 
 type SPRBlockConfig struct {
@@ -72,7 +74,6 @@ func (b *Block) saveConfig() {
 func (b *Block) showConfig(w http.ResponseWriter, r *http.Request) {
 	//reload
 	b.loadSPRConfig()
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(b.config)
 }
@@ -146,9 +147,16 @@ func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
 
 }
 
+var BLmtx sync.RWMutex
+
 func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
 	BlocklistMtx.Lock()
 	defer BlocklistMtx.Unlock()
+
+	BLmtx.Lock()
+	defer BLmtx.Unlock()
+
+	entry := ListEntry{}
 
 	if r.Method == http.MethodGet {
 		w.Header().Set("Content-Type", "application/json")
@@ -156,7 +164,6 @@ func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry := ListEntry{}
 	err := json.NewDecoder(r.Body).Decode(&entry)
 
 	if err == nil {
@@ -175,6 +182,8 @@ func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
 		for i, _ := range b.config.BlockLists {
 			if b.config.BlockLists[i].URI == entry.URI {
 				b.config.BlockLists[i].Enabled = entry.Enabled
+				b.config.BlockLists[i].Tags = entry.Tags
+
 				found = true
 				break
 			}

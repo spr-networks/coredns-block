@@ -9,7 +9,7 @@ import (
 )
 
 
-func listRead(r io.Reader, list map[string]struct{}) error {
+func listRead(r io.Reader, list map[string]DomainValue, list_id int64) error {
 	var ignoreDomains = [...]string{"localhost.", "localhost.localdomain.", "local.", "broadcasthost.", "localhost.", "ip6-localhost.", "ip6-loopback.", "localhost.", "ip6-localnet.", "ip6-mcastprefix.", "ip6-allnodes.", "ip6-allrouters.", "ip6-allhosts.", "0.0.0.0"}
 
 	scanner := bufio.NewScanner(r)
@@ -27,7 +27,7 @@ func listRead(r io.Reader, list map[string]struct{}) error {
 			domain = dns.Fqdn(flds[1])
 		}
 
-		list[domain] = struct{}{}
+		list[domain] = DomainValue{list_id: list_id}
 	}
 
 	for _, k := range ignoreDomains {

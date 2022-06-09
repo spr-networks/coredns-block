@@ -17,7 +17,7 @@ com
 	b.setupDB(":memory:")
 	r := strings.NewReader(list)
 	l := make(map[string]struct{})
-	listRead(r, l)
+	listRead(r, l, -1)
 	b.update = l
 
 	tx, err := b.SQL.Begin()
