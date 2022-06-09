@@ -214,8 +214,7 @@ func APIDevices() (map[string]DeviceEntry, error) {
 
 	data, err := ioutil.ReadFile(DevicesPublicConfigFile)
 	if err == nil {
-		public_devices := map[string]DeviceEntry{}
-		err = json.Unmarshal(data, &public_devices)
+		err = json.Unmarshal(data, &devs)
 		if err != nil {
 			fmt.Println(err)
 			return nil, err
