@@ -22,8 +22,6 @@ var TEST_PREFIX = os.Getenv("TEST_PREFIX")
 var UNIX_PLUGIN_LISTENER = TEST_PREFIX + "/state/dns/dns_block_plugin"
 var CONFIG_PATH = TEST_PREFIX + "/state/dns/block_rules.json"
 
-var BlocklistMtx sync.Mutex
-
 type ListEntry struct {
 	URI     string
 	Enabled bool
@@ -150,17 +148,14 @@ func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
 var BLmtx sync.RWMutex
 
 func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
-	BlocklistMtx.Lock()
-	defer BlocklistMtx.Unlock()
-
-	BLmtx.Lock()
-	defer BLmtx.Unlock()
 
 	entry := ListEntry{}
 
 	if r.Method == http.MethodGet {
 		w.Header().Set("Content-Type", "application/json")
+		BLmtx.Lock()
 		json.NewEncoder(w).Encode(b.config.BlockLists)
+		BLmtx.Unlock()
 		return
 	}
 
@@ -179,6 +174,7 @@ func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodPut {
 		found := false
+		BLmtx.Lock()
 		for i, _ := range b.config.BlockLists {
 			if b.config.BlockLists[i].URI == entry.URI {
 				b.config.BlockLists[i].Enabled = entry.Enabled
@@ -192,12 +188,14 @@ func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
 		if !found {
 			b.config.BlockLists = append(b.config.BlockLists, entry)
 		}
+		BLmtx.Unlock()
 
 		b.saveConfig()
 		//update the download
 		b.download()
 	} else if r.Method == http.MethodDelete {
 		found := -1
+		BLmtx.Lock()
 		for i, _ := range b.config.BlockLists {
 			if b.config.BlockLists[i].URI == entry.URI {
 				found = i
@@ -206,18 +204,22 @@ func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if found == -1 {
+			BLmtx.Unlock()
 			http.Error(w, "Entry not found", 400)
 			return
 		}
 
 		b.config.BlockLists = append(b.config.BlockLists[:found], b.config.BlockLists[found+1:]...)
+		BLmtx.Unlock()
 		b.saveConfig()
 		b.download()
 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	BLmtx.Lock()
 	json.NewEncoder(w).Encode(b.config.BlockLists)
+	BLmtx.Unlock()
 }
 
 func (b *Block) modifyExclusions(w http.ResponseWriter, r *http.Request) {
