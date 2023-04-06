@@ -8,7 +8,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-
 func listRead(r io.Reader, list map[string]DomainValue, list_id int64) error {
 	var ignoreDomains = [...]string{"localhost.", "localhost.localdomain.", "local.", "broadcasthost.", "localhost.", "ip6-localhost.", "ip6-loopback.", "localhost.", "ip6-localnet.", "ip6-mcastprefix.", "ip6-allnodes.", "ip6-allrouters.", "ip6-allhosts.", "0.0.0.0"}
 
@@ -33,7 +32,6 @@ func listRead(r io.Reader, list map[string]DomainValue, list_id int64) error {
 	for _, k := range ignoreDomains {
 		delete(list, k)
 	}
-
 
 	return scanner.Err()
 }

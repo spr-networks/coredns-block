@@ -20,7 +20,7 @@ func setup(c *caddy.Controller) error {
 	c.Next()
 	if c.NextArg() {
 		arg := c.Val()
-		if (arg == "enable_superapi") {
+		if arg == "enable_superapi" {
 			superapi_enabled = true
 		} else {
 			return plugin.Error("block", c.ArgErr())
@@ -53,7 +53,7 @@ func setup(c *caddy.Controller) error {
 			}()
 
 			go func() { block.refresh() }()
-			go func() { block.refreshTags()}()
+			go func() { block.refreshTags() }()
 
 		})
 

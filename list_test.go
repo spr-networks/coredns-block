@@ -25,13 +25,13 @@ com
 		log.Fatal(err)
 	}
 
-	tx.Exec("DELETE FROM domains");
+	tx.Exec("DELETE FROM domains")
 
 	// Update the sqlite database
 	stmt, err := tx.Prepare("INSERT INTO domains(domain) VALUES(?)")
-  if err != nil {
-        log.Fatal(err)
-  }
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for domain, _ := range b.update {
 		stmt.Exec(domain)
