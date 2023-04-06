@@ -6,12 +6,12 @@ package block
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
-	"time"
-	"fmt"
 	"sync"
-	"io/ioutil"
+	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
@@ -21,6 +21,7 @@ import (
 	"github.com/miekg/dns"
 
 	"database/sql"
+	"github.com/spr-networks/sprbus"
 	_ "modernc.org/sqlite"
 )
 
@@ -29,7 +30,7 @@ var log = clog.NewWithPlugin("block")
 type BlockMetrics struct {
 	TotalQueries   int64
 	BlockedQueries int64
-	BlockedDomains	 int64
+	BlockedDomains int64
 }
 
 var gMetrics = BlockMetrics{}
@@ -57,6 +58,27 @@ func New() *Block {
 	}
 }
 
+type DNSBlockEvent struct {
+	ClientIP string
+	Name     string
+}
+
+type DNSOverrideEvent struct {
+	ClientIP string
+	IP       string // the new IP response
+	Name     string
+}
+
+func (i *DNSBlockEvent) String() string {
+	x, _ := json.Marshal(i)
+	return string(x)
+}
+
+func (i *DNSOverrideEvent) String() string {
+	x, _ := json.Marshal(i)
+	return string(x)
+}
+
 // ServeDNS implements the plugin.Handler interface.
 func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
@@ -75,6 +97,9 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		resp.SetRcode(r, dns.RcodeNameError)
 		w.WriteMsg(resp)
 
+		event := DNSBlockEvent{state.IP(), state.Name()}
+		sprbus.Publish("dns:block:event", event.String())
+
 		return dns.RcodeNameError, nil
 	}
 
@@ -85,6 +110,9 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 		name := r.Question[0].Name
 		rrType := r.Question[0].Qtype
+
+		event := DNSOverrideEvent{state.IP(), returnIP, name}
+		sprbus.Publish("dns:override:event", event.String())
 
 		if rrType == dns.TypeA {
 			ans := &dns.A{
@@ -188,7 +216,6 @@ var IPTagMap = make(map[string][]string)
 
 var IPTagmtx sync.RWMutex
 
-
 type DeviceEntry struct {
 	Name       string
 	MAC        string
@@ -208,7 +235,6 @@ type PSKEntry struct {
 var DevicesConfigPath = TEST_PREFIX + "/configs/devices/"
 var DevicesPublicConfigFile = TEST_PREFIX + "/state/public/devices-public.json"
 
-
 func APIDevices() (map[string]DeviceEntry, error) {
 	devs := map[string]DeviceEntry{}
 
@@ -226,7 +252,6 @@ func APIDevices() (map[string]DeviceEntry, error) {
 
 	return devs, nil
 }
-
 
 func (b *Block) updateIPTags() {
 	newMap := make(map[string][]string)
@@ -263,7 +288,6 @@ func (b *Block) refreshTags() {
 	}
 }
 
-
 func IPHasTags(IP string, applied_tags []string) bool {
 
 	if len(applied_tags) == 0 {
@@ -278,17 +302,16 @@ func IPHasTags(IP string, applied_tags []string) bool {
 		return false
 	}
 
-	for _, applied_tag := range(applied_tags) {
-		for _, device_tag := range(device_tags) {
+	for _, applied_tag := range applied_tags {
+		for _, device_tag := range device_tags {
 			if applied_tag == device_tag {
 				return true
 			}
 		}
 	}
 
-	return false;
+	return false
 }
-
 
 func (b *Block) deviceMatchBlockListTags(IP string, list_id int64) bool {
 	// a domain was blocked. Check if the list_id has a group specification.
@@ -343,7 +366,7 @@ func (b *Block) checkBlock(IP string, name string, returnIP *string) bool {
 	r := b.SQL.QueryRow(sql_query_domain, name)
 
 	var (
-		id int64
+		id      int64
 		list_id int64
 	)
 
