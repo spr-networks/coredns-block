@@ -112,7 +112,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		rrType := r.Question[0].Qtype
 
 		event := DNSOverrideEvent{state.IP(), returnIP, name}
-		sprbus.Publish("dns:override:event", event.String())
+		sprbus.PublishString("dns:override:event", event.String())
 
 		if rrType == dns.TypeA {
 			ans := &dns.A{
