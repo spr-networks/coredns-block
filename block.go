@@ -98,7 +98,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		w.WriteMsg(resp)
 
 		event := DNSBlockEvent{state.IP(), state.Name()}
-		sprbus.Publish("dns:block:event", event.String())
+		sprbus.PublishString("dns:block:event", event.String())
 
 		return dns.RcodeNameError, nil
 	}
