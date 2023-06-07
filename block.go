@@ -388,7 +388,7 @@ func (b *Block) blocked(IP string, name string, returnIP *string) bool {
 
 func (b *Block) setupDB(filename string) {
 
-	Dmtx.RLock()
+	Dmtx.Lock()
 	defer Dmtx.Unlock()
 	b.domains = make(map[string]DomainValue)
 
