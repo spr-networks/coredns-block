@@ -4,6 +4,7 @@ This is an updated version of miekg's block plugin from https://github.com/miekg
 
 - Supports multiple lists
 - Integrated with SPR for applying blocklists by tag, provide API for managing lists.
+- Has support for per-client overrides and expiring entries
 
 ## Name
 
@@ -49,7 +50,3 @@ be blocked, including any subdomains.
 [INFO] plugin/block: Blocked 005.example.org.
 [INFO] plugin/block: Blocked www.005.example.org.
 ~~~
-
-## TBD
-- Make the block list configurable
-- Make per-client block lists
