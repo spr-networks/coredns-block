@@ -49,7 +49,7 @@ type Block struct {
 	superapi_enabled bool
 
 	domains map[string]DomainValue
-	Next plugin.Handler
+	Next    plugin.Handler
 }
 
 func New() *Block {
@@ -192,7 +192,7 @@ func (b *Block) dumpEntries(w http.ResponseWriter, r *http.Request) {
 
 	Dmtx.Lock()
 
-  for domain, entry := range b.domains {
+	for domain, entry := range b.domains {
 		if entry.disabled == false {
 			domains = append(domains, domain)
 		}
