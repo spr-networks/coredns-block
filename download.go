@@ -1,7 +1,6 @@
 package block
 
 import (
-	_ "modernc.org/sqlite"
 	"net/http"
 	"sync"
 	"time"
@@ -52,29 +51,11 @@ func (b *Block) download() {
 
 		log.Infof("Updating database with new domains")
 
-		tx, err := b.SQL.Begin()
-		if err != nil {
-			log.Fatal(err)
-		}
+		Dmtx.Lock()
+		b.domains = b.update
+		Dmtx.Unlock()
 
-		tx.Exec("DELETE FROM domains")
-
-		// Update the sqlite database
-		stmt, err := tx.Prepare("INSERT INTO domains(domain, list_id) VALUES(?, ?)")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for domain, val := range b.update {
-			stmt.Exec(domain, val.list_id)
-		}
-
-		stmt.Close()
-
-		tx.Commit()
 		b.update = make(map[string]DomainValue)
-
-		b.SQL.Exec("VACUUM")
 
 		gMetrics.BlockedDomains = int64(domains)
 		log.Infof("Block lists updated: %d domains added", domains)

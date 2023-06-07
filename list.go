@@ -26,7 +26,15 @@ func listRead(r io.Reader, list map[string]DomainValue, list_id int64) error {
 			domain = dns.Fqdn(flds[1])
 		}
 
-		list[domain] = DomainValue{list_id: list_id}
+		entry, exists := list[domain]
+		if exists {
+			//add list_id for that domain
+			entry.list_ids = append(entry.list_ids, list_id)
+			list[domain] = entry
+		} else {
+			//create entry
+			list[domain] = DomainValue{list_ids: []int64{list_id}}
+		}
 	}
 
 	for _, k := range ignoreDomains {
