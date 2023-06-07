@@ -2,8 +2,8 @@
 
 This is an updated version of miekg's block plugin from https://github.com/miekg/block
 
-- It creates a sql database to keep track of downloads
-- Currently just uses one list
+- Supports multiple lists
+- Integrated with SPR for applying blocklists by tag, provide API for managing lists.
 
 ## Name
 
@@ -16,12 +16,10 @@ startup or otherwise once a week.
 
 For a domain that is blocked we will return a NXDOMAIN response.
 
-THIS IS A PROOF OF CONCEPT. IT IS NOT PRODUCTION QUALITY.
-
 ## Syntax
 
 ~~~ txt
-block
+block enable_superapi
 ~~~
 
 ## Metrics
