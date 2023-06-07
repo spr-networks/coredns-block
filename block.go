@@ -20,9 +20,7 @@ import (
 
 	"github.com/miekg/dns"
 
-	"database/sql"
 	"github.com/spr-networks/sprbus"
-	_ "modernc.org/sqlite"
 )
 
 var log = clog.NewWithPlugin("block")
@@ -36,8 +34,11 @@ type BlockMetrics struct {
 var gMetrics = BlockMetrics{}
 
 type DomainValue struct {
-	list_id int64
+	list_ids []int64
+	disabled bool
 }
+
+var Dmtx sync.RWMutex
 
 // Block is the block plugin.
 type Block struct {
@@ -47,7 +48,7 @@ type Block struct {
 	config           SPRBlockConfig
 	superapi_enabled bool
 
-	SQL  *sql.DB
+	domains map[string]DomainValue
 	Next plugin.Handler
 }
 
@@ -187,26 +188,17 @@ func matchOverride(IP string, name string, overrides []DomainOverride, returnIP 
 }
 
 func (b *Block) dumpEntries(w http.ResponseWriter, r *http.Request) {
-	sql_query_domains := `
-        SELECT domain FROM domains WHERE enabled=1`
-
-	rows, err := b.SQL.Query(sql_query_domains)
-
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-
 	domains := []string{}
 
-	defer rows.Close()
-	for rows.Next() {
-		var domain string
-		err := rows.Scan(&domain)
-		if err == nil {
+	Dmtx.Lock()
+
+  for domain, entry := range b.domains {
+		if entry.disabled == false {
 			domains = append(domains, domain)
 		}
 	}
+
+	Dmtx.Unlock()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(domains)
@@ -313,7 +305,7 @@ func IPHasTags(IP string, applied_tags []string) bool {
 	return false
 }
 
-func (b *Block) deviceMatchBlockListTags(IP string, list_id int64) bool {
+func (b *Block) deviceMatchBlockListTags(IP string, entry DomainValue) bool {
 	// a domain was blocked. Check if the list_id has a group specification.
 	// return true if there is no group specification, or the device is
 	// in the specified. If the device is not in a specified group, return false
@@ -321,19 +313,23 @@ func (b *Block) deviceMatchBlockListTags(IP string, list_id int64) bool {
 	BLmtx.RLock()
 	defer BLmtx.RUnlock()
 
-	if list_id >= 0 && int(list_id) < len(b.config.BlockLists) {
-		applied_tags := b.config.BlockLists[list_id].Tags
+	for list_id := range entry.list_ids {
 
-		if len(applied_tags) == 0 {
-			//no tags specified, succeed by default
-			return true
+		if list_id >= 0 && int(list_id) < len(b.config.BlockLists) {
+			applied_tags := b.config.BlockLists[list_id].Tags
+
+			if len(applied_tags) == 0 {
+				//no tags specified, continue
+				continue
+			}
+
+			//had tags, return true only if IP has that tag. otherwise false
+			return IPHasTags(IP, applied_tags)
 		}
 
-		//had tags, return true only if IP has that tag. otherwise false
-		return IPHasTags(IP, applied_tags)
 	}
 
-	//invalid list_id, succeed
+	//no list
 	return true
 }
 
@@ -360,23 +356,17 @@ func (b *Block) checkBlock(IP string, name string, returnIP *string) bool {
 
 	}
 
-	sql_query_domain := `
-        SELECT id, list_id FROM domains WHERE enabled=1 and domain=?`
+	Dmtx.RLock()
+	entry, exists := b.domains[name]
+	Dmtx.RUnlock()
 
-	r := b.SQL.QueryRow(sql_query_domain, name)
-
-	var (
-		id      int64
-		list_id int64
-	)
-
-	switch err := r.Scan(&id, &list_id); err {
-	case nil:
+	if exists && !entry.disabled {
 		if b.superapi_enabled {
-			return b.deviceMatchBlockListTags(IP, list_id)
+			return b.deviceMatchBlockListTags(IP, entry)
 		}
 		return true
 	}
+
 	return false
 }
 
@@ -398,33 +388,8 @@ func (b *Block) blocked(IP string, name string, returnIP *string) bool {
 
 func (b *Block) setupDB(filename string) {
 
-	db, err := sql.Open("sqlite", filename)
-	if err != nil {
-		panic(err)
-	}
-	if db == nil {
-		panic("db nil")
-	}
-
-	db.Exec("PRAGMA journal_mode=WAL;")
-
-	domainsSchema := `CREATE TABLE IF NOT EXISTS domains
-	(
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		list_id INTEGER,
-		type INTEGER NOT NULL DEFAULT 0,
-		domain TEXT NOT NULL,
-		enabled BOOLEAN NOT NULL DEFAULT 1,
-		date_added INTEGER NOT NULL DEFAULT (cast(strftime('%s', 'now') as int)),
-		date_modified INTEGER NOT NULL DEFAULT (cast(strftime('%s', 'now') as int)),
-		comment TEXT,
-		UNIQUE(domain, list_id, type)
-	);`
-
-	if _, err = db.Exec(domainsSchema); nil != err {
-		panic(err)
-	}
-
-	b.SQL = db
+	Dmtx.RLock()
+	defer Dmtx.Unlock()
+	b.domains = make(map[string]DomainValue)
 
 }
