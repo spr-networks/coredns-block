@@ -18,35 +18,34 @@ func (b *Block) download() {
 		defer DLmtx.Unlock()
 
 		domains := 0
-
+		list_ids := []int{}
 		if b.superapi_enabled {
 			//override blocklist with config
 			blocklist = []string{}
 			BLmtx.RLock()
-			for _, entry := range b.config.BlockLists {
+			for i, entry := range b.config.BlockLists {
 				if entry.Enabled {
 					blocklist = append(blocklist, entry.URI)
+					list_ids = append(list_ids, i)
 				}
 			}
 			BLmtx.RUnlock()
 		}
 
-		list_id := int64(0)
-		for _, url := range blocklist {
+		for i, url := range blocklist {
 			log.Infof("Block list update started %q", url)
 			resp, err := http.Get(url)
 			if err != nil {
 				log.Warningf("Failed to download block list %q: %s", url, err)
 				continue
 			}
-			if err := listRead(resp.Body, b.update, list_id); err != nil {
+			if err := listRead(resp.Body, b.update, int64(list_ids[i])); err != nil {
 				log.Warningf("Failed to parse block list %q: %s", url, err)
 			}
 			domains += len(b.update)
 			resp.Body.Close()
 
 			log.Infof("Block list update finished %q", url)
-			list_id += 1
 		}
 
 		log.Infof("Updating database with new domains")

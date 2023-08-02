@@ -313,7 +313,7 @@ func (b *Block) deviceMatchBlockListTags(IP string, entry DomainValue) bool {
 	BLmtx.RLock()
 	defer BLmtx.RUnlock()
 
-	for list_id := range entry.list_ids {
+	for _, list_id := range entry.list_ids {
 
 		if list_id >= 0 && int(list_id) < len(b.config.BlockLists) {
 			applied_tags := b.config.BlockLists[list_id].Tags
