@@ -152,7 +152,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 // Name implements the Handler interface.
 func (b *Block) Name() string { return "block" }
 
-func matchOverride(IP string, name string, overrides []DomainOverride, returnIP *string) bool {
+func matchOverride(IP string, fullname string, name string, overrides []DomainOverride, returnIP *string) bool {
 
 	cur_time := time.Now().Unix()
 
@@ -167,7 +167,7 @@ func matchOverride(IP string, name string, overrides []DomainOverride, returnIP 
 		if entry.ClientIP == "" || entry.ClientIP == "*" || entry.ClientIP == IP {
 			//match wildcard or match IP
 			//now check if domain matches name to make a decision
-			if name == entry.Domain {
+			if name == entry.Domain || fullname == entry.Domain {
 				//got a match -> if there is a returnIP set, carry it over
 				if entry.ResultIP != "" {
 					*returnIP = entry.ResultIP
@@ -333,7 +333,7 @@ func (b *Block) deviceMatchBlockListTags(IP string, entry DomainValue) bool {
 	return true
 }
 
-func (b *Block) checkBlock(IP string, name string, returnIP *string) bool {
+func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *string) bool {
 
 	if b.superapi_enabled {
 		// do not block for excluded IPs
@@ -344,12 +344,12 @@ func (b *Block) checkBlock(IP string, name string, returnIP *string) bool {
 			}
 		}
 
-		if matchOverride(IP, name, b.config.PermitDomains, returnIP) {
+		if matchOverride(IP, fullname, name, b.config.PermitDomains, returnIP) {
 			//permit this domain
 			return false
 		}
 
-		if matchOverride(IP, name, b.config.BlockDomains, returnIP) {
+		if matchOverride(IP, fullname, name, b.config.BlockDomains, returnIP) {
 			//yes blocked
 			return true
 		}
@@ -372,17 +372,18 @@ func (b *Block) checkBlock(IP string, name string, returnIP *string) bool {
 
 func (b *Block) blocked(IP string, name string, returnIP *string) bool {
 
-	if b.checkBlock(IP, name, returnIP) {
+	if b.checkBlock(IP, name, name, returnIP) {
 		return true
 	}
 
 	i, end := dns.NextLabel(name, 0)
 	for !end {
-		if b.checkBlock(IP, name[i:], returnIP) {
+		if b.checkBlock(IP, name[i:], name, returnIP) {
 			return true
 		}
 		i, end = dns.NextLabel(name, i)
 	}
+
 	return false
 }
 
