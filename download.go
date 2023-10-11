@@ -52,7 +52,7 @@ func (b *Block) download() {
 
 		Dmtx.Lock()
 		for entry, _ := range b.update {
-				b.domains[entry] = b.update[entry]
+			b.domains[entry] = b.update[entry]
 		}
 		Dmtx.Unlock()
 
@@ -64,7 +64,11 @@ func (b *Block) download() {
 }
 
 func (b *Block) refresh() {
-	tick := time.NewTicker(1 * week)
+	refreshTime := time.Hour * 24 * 7
+	if b.config.RefreshSeconds > 0 {
+		refreshTime = time.Duration(b.config.RefreshSeconds) * time.Second
+	}
+	tick := time.NewTicker(refreshTime)
 	defer tick.Stop()
 	for {
 		select {
@@ -76,5 +80,3 @@ func (b *Block) refresh() {
 		}
 	}
 }
-
-const week = time.Hour * 24 * 7

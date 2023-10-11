@@ -13,7 +13,7 @@ This is an updated version of miekg's block plugin from https://github.com/miekg
 ## Description
 
 The block plugin will block any domain that is on the block lists. The block lists are downloaded on
-startup or otherwise once a week.
+startup or otherwise once a week -- can also be updated by configuration in the spr-api.
 
 For a domain that is blocked we will return a NXDOMAIN response.
 

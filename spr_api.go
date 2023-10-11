@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -42,6 +43,7 @@ type SPRBlockConfig struct {
 	PermitDomains      []DomainOverride
 	BlockDomains       []DomainOverride
 	ClientIPExclusions []string //these IPs should not have ad blocking
+	RefreshSeconds     int
 }
 
 var Configmtx sync.Mutex
@@ -288,6 +290,18 @@ func (b *Block) getMetrics(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(gMetrics)
 }
 
+func (b *Block) setRefresh(w http.ResponseWriter, r *http.Request) {
+	seconds := r.URL.Query().Get("seconds")
+	i, err := strconv.Atoi(seconds)
+	if err != nil || i < 0 {
+		http.Error(w, "Error converting seconds", 400)
+		return
+	}
+
+	b.config.RefreshSeconds = i
+	b.saveConfig()
+}
+
 func logRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.String() != "/healthy" {
@@ -303,6 +317,7 @@ func (b *Block) runAPI() {
 	unix_plugin_router := mux.NewRouter().StrictSlash(true)
 
 	unix_plugin_router.HandleFunc("/config", b.showConfig).Methods("GET")
+	unix_plugin_router.HandleFunc("/setRefresh", b.setRefresh).Methods("PUT")
 	unix_plugin_router.HandleFunc("/override", b.modifyOverrideDomains).Methods("PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/blocklists", b.modifyBlockLists).Methods("GET", "PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/exclusions", b.modifyExclusions).Methods("GET", "PUT", "DELETE")
