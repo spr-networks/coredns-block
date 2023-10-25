@@ -51,6 +51,7 @@ func (b *Block) download() {
 		log.Infof("Updating database with new domains")
 
 		Dmtx.Lock()
+		b.domains = make(map[string]DomainValue)
 		for entry, _ := range b.update {
 			b.domains[entry] = b.update[entry]
 		}
