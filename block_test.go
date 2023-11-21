@@ -18,31 +18,15 @@ com
 
 	b := new(Block)
 
-	b.setupDB(":memory:")
-
 	r := strings.NewReader(list)
 	l := make(map[string]DomainValue)
-	listRead(r, l, -1)
+	listRead(r, l, 0)
 	b.update = l
 
-	tx, err := b.SQL.Begin()
-	if err != nil {
-		log.Fatal(err)
+	b.domains = make(map[string]DomainValue)
+	for entry, _ := range b.update {
+		b.domains[entry] = b.update[entry]
 	}
-
-	tx.Exec("DELETE FROM domains")
-
-	// Update the sqlite database
-	stmt, err := tx.Prepare("INSERT INTO domains(domain) VALUES(?)")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for domain, _ := range b.update {
-		stmt.Exec(domain)
-	}
-
-	tx.Commit()
 
 	tests := []struct {
 		name    string
@@ -57,8 +41,11 @@ com
 		{"www.008.free-counter.co.uk.", true},
 	}
 
+	//func (b *Block) blocked(IP string, name string, returnIP *string) bool {
+
 	for _, test := range tests {
-		got := b.blocked(test.name)
+		retIP := ""
+		got := b.blocked("1.2.3.4", test.name, &retIP)
 		if got != test.blocked {
 			t.Errorf("Expected %s to be blocked", test.name)
 		}
