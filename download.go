@@ -7,7 +7,7 @@ import (
 )
 
 // our default block lists.
-var blocklist = []string{"https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"}
+var blocklists = []string{"https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"}
 
 var DLmtx sync.Mutex
 
@@ -21,18 +21,18 @@ func (b *Block) download() {
 		list_ids := []int{}
 		if b.superapi_enabled {
 			//override blocklist with config
-			blocklist = []string{}
+			blocklists = []string{}
 			BLmtx.RLock()
 			for i, entry := range b.config.BlockLists {
 				if entry.Enabled {
-					blocklist = append(blocklist, entry.URI)
+					blocklists = append(blocklists, entry.URI)
 					list_ids = append(list_ids, i)
 				}
 			}
 			BLmtx.RUnlock()
 		}
 
-		for i, url := range blocklist {
+		for i, url := range blocklists {
 			log.Infof("Block list update started %q", url)
 			resp, err := http.Get(url)
 			if err != nil {
