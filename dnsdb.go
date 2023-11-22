@@ -87,6 +87,19 @@ func putItem(db *bolt.DB, bucket string, item BucketItem) error {
 	return err
 }
 
+func getCount(db *bolt.DB, bucket string) int64 {
+	keyN := int64(0)
+	db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucket))
+		if b != nil {
+			stats := b.Stats()
+			keyN = int64(stats.KeyN)
+		}
+		return nil
+	})
+	return keyN
+}
+
 func getItem(db *bolt.DB, bucket string, key string) (error, BucketItem) {
 	bucketItem := BucketItem{}
 

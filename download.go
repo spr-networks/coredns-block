@@ -17,7 +17,6 @@ func (b *Block) download() {
 		DLmtx.Lock()
 		defer DLmtx.Unlock()
 
-		domains := 0
 		list_ids := []int{}
 		if b.superapi_enabled {
 			//override blocklist with config
@@ -54,10 +53,7 @@ func (b *Block) download() {
 		Dmtx.Unlock()
 
 		b.update = make(map[string]DomainValue)
-
-		//tbd.. do a count instead here
-		gMetrics.BlockedDomains = int64(domains)
-		log.Infof("Block lists updated: %d domains added", domains)
+		log.Infof("Block lists updated: %d domains added", gMetrics.BlockedDomains)
 	}()
 }
 

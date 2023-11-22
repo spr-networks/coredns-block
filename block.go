@@ -357,6 +357,8 @@ func (b *Block) UpdateDomains(update map[string]DomainValue) error {
 		}
 	}
 
+	gMetrics.BlockedDomains = getCount(b.Db, gDomainBucket)
+
 	return nil
 }
 
