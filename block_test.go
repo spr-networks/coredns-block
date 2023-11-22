@@ -1,6 +1,7 @@
 package block
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -17,15 +18,27 @@ com
 `
 
 	b := new(Block)
+	os.Remove("/tmp/block_test.db")
+	b.setupDB("/tmp/block_test.db")
 
 	r := strings.NewReader(list)
 	l := make(map[string]DomainValue)
 	listRead(r, l, 0)
 	b.update = l
 
-	b.domains = make(map[string]DomainValue)
-	for entry, _ := range b.update {
-		b.domains[entry] = b.update[entry]
+	err := b.UpdateDomains(b.update)
+	if err != nil {
+		log.Fatal("failed to update block_test -- ", err)
+	}
+
+	_, found := b.getDomain("no.exist")
+	if found {
+		log.Fatal("found missing domain")
+	}
+
+	_, found = b.getDomain("007.go2cloud.org.")
+	if !found {
+		log.Fatal("failed to look up stored domain")
 	}
 
 	tests := []struct {

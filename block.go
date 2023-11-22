@@ -23,7 +23,10 @@ import (
 	"github.com/spr-networks/sprbus"
 )
 
+import bolt "go.etcd.io/bbolt"
+
 var log = clog.NewWithPlugin("block")
+var gDomainBucket = "domains"
 
 type BlockMetrics struct {
 	TotalQueries   int64
@@ -34,8 +37,8 @@ type BlockMetrics struct {
 var gMetrics = BlockMetrics{}
 
 type DomainValue struct {
-	list_ids []int64
-	disabled bool
+	List_ids []int
+	Disabled bool
 }
 
 var Dmtx sync.RWMutex
@@ -48,8 +51,8 @@ type Block struct {
 	config           SPRBlockConfig
 	superapi_enabled bool
 
-	domains map[string]DomainValue
-	Next    plugin.Handler
+	Db   *bolt.DB
+	Next plugin.Handler
 }
 
 func New() *Block {
@@ -192,13 +195,19 @@ func (b *Block) dumpEntries(w http.ResponseWriter, r *http.Request) {
 
 	Dmtx.Lock()
 
-	for domain, entry := range b.domains {
-		if entry.disabled == false {
-			domains = append(domains, domain)
+	err, items := getItems(b.Db, gDomainBucket)
+	if err != nil {
+		for _, v := range items {
+			domains = append(domains, v.Key)
 		}
 	}
 
 	Dmtx.Unlock()
+
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(domains)
@@ -313,7 +322,7 @@ func (b *Block) deviceMatchBlockListTags(IP string, entry DomainValue) bool {
 	BLmtx.RLock()
 	defer BLmtx.RUnlock()
 
-	for _, list_id := range entry.list_ids {
+	for _, list_id := range entry.List_ids {
 
 		if list_id >= 0 && int(list_id) < len(b.config.BlockLists) {
 			applied_tags := b.config.BlockLists[list_id].Tags
@@ -331,6 +340,32 @@ func (b *Block) deviceMatchBlockListTags(IP string, entry DomainValue) bool {
 
 	//no list
 	return true
+}
+
+func (b *Block) UpdateDomains(update map[string]DomainValue) error {
+
+	//b.domains = make(map[string]DomainValue)
+	//tbd, do we flush preevious buckets?
+
+	for entry, _ := range b.update {
+		if len(entry) == 0 {
+			continue
+		}
+		err := putItem(b.Db, gDomainBucket, BucketItem{entry, b.update[entry]})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (b *Block) getDomain(name string) (DomainValue, bool) {
+	err, item := getItem(b.Db, gDomainBucket, name)
+	if err == nil {
+		return item.Value, true
+	}
+	return DomainValue{}, false
 }
 
 func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *string) bool {
@@ -357,10 +392,10 @@ func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *st
 	}
 
 	Dmtx.RLock()
-	entry, exists := b.domains[name]
+	entry, exists := b.getDomain(name)
 	Dmtx.RUnlock()
 
-	if exists && !entry.disabled {
+	if exists && !entry.Disabled {
 		if b.superapi_enabled {
 			return b.deviceMatchBlockListTags(IP, entry)
 		}
@@ -391,6 +426,24 @@ func (b *Block) setupDB(filename string) {
 
 	Dmtx.Lock()
 	defer Dmtx.Unlock()
-	b.domains = make(map[string]DomainValue)
 
+	options := &bolt.Options{Timeout: 1 * time.Second}
+
+	db, err := bolt.Open(filename, 0664, options)
+	if err != nil {
+		log.Fatal("Failed to open", filename, err)
+	}
+
+	err = db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte(gDomainBucket))
+		if err != nil {
+			return fmt.Errorf("could not create root bucket: %v", err)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Fatal("Failed to make bucket", err)
+	}
+
+	b.Db = db
 }

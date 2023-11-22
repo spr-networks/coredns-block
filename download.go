@@ -39,10 +39,9 @@ func (b *Block) download() {
 				log.Warningf("Failed to download block list %q: %s", url, err)
 				continue
 			}
-			if err := listRead(resp.Body, b.update, int64(list_ids[i])); err != nil {
+			if err := listRead(resp.Body, b.update, int(list_ids[i])); err != nil {
 				log.Warningf("Failed to parse block list %q: %s", url, err)
 			}
-			domains += len(b.update)
 			resp.Body.Close()
 
 			log.Infof("Block list update finished %q %d", url, len(b.update))
@@ -51,14 +50,12 @@ func (b *Block) download() {
 		log.Infof("Updating database with new domains")
 
 		Dmtx.Lock()
-		b.domains = make(map[string]DomainValue)
-		for entry, _ := range b.update {
-			b.domains[entry] = b.update[entry]
-		}
+		b.UpdateDomains(b.update)
 		Dmtx.Unlock()
 
 		b.update = make(map[string]DomainValue)
 
+		//tbd.. do a count instead here
 		gMetrics.BlockedDomains = int64(domains)
 		log.Infof("Block lists updated: %d domains added", domains)
 	}()
