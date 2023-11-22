@@ -42,6 +42,7 @@ type DomainValue struct {
 }
 
 var Dmtx sync.RWMutex
+var Stagemtx sync.RWMutex
 
 // Block is the block plugin.
 type Block struct {

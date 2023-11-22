@@ -13,6 +13,8 @@ var doOnce sync.Once
 
 var super_api = false
 
+var gDbPath = TEST_PREFIX + "/state/dns/dns.db"
+
 func init() { plugin.Register("block", setup) }
 
 func setup(c *caddy.Controller) error {
@@ -32,7 +34,7 @@ func setup(c *caddy.Controller) error {
 
 	c.OnStartup(func() error {
 
-		block.setupDB("dns.db")
+		block.setupDB(gDbPath)
 
 		doOnce.Do(func() {
 			//Multiple server instances could be running, but the plugin only needs

@@ -8,6 +8,32 @@ import (
 	"github.com/miekg/dns"
 )
 
+func lineRead(txt string) (bool, string) {
+	var ignoreDomains = [...]string{"localhost.", "localhost.localdomain.", "local.", "broadcasthost.", "localhost.", "ip6-localhost.", "ip6-loopback.", "localhost.", "ip6-localnet.", "ip6-mcastprefix.", "ip6-allnodes.", "ip6-allrouters.", "ip6-allhosts.", "0.0.0.0"}
+
+	if strings.HasPrefix("#", txt) {
+		return false, ""
+	}
+
+	var domain string
+	flds := strings.Fields(txt)
+	switch len(flds) {
+	case 1:
+		domain = dns.Fqdn(flds[0])
+	case 2:
+		domain = dns.Fqdn(flds[1])
+	}
+
+	for _, ignore := range ignoreDomains {
+		if ignore == domain {
+			return false, ""
+		}
+	}
+
+	return true, ""
+
+}
+
 func listRead(r io.Reader, list map[string]DomainValue, list_id int) error {
 	var ignoreDomains = [...]string{"localhost.", "localhost.localdomain.", "local.", "broadcasthost.", "localhost.", "ip6-localhost.", "ip6-loopback.", "localhost.", "ip6-localnet.", "ip6-mcastprefix.", "ip6-allnodes.", "ip6-allrouters.", "ip6-allhosts.", "0.0.0.0"}
 
