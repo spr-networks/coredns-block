@@ -7,36 +7,49 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"fmt"
+	"os"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 // our default block lists.
 var blocklists = []string{"https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"}
 
-var gDomainStagingBucket = gDomainBucket + "-staging"
+var DLmtx sync.RWMutex
 
-var DLmtx sync.Mutex
-
-func (b *Block) transferStagingBucket() error {
+func (b *Block) transferStagingDB() error {
 	Stagemtx.Lock()
 	defer Stagemtx.Unlock()
 
+	b.Db.Close()
+
+	err := os.Rename(b.DbPath+"-staging", b.DbPath)
+	if err != nil {
+		return err
+	}
+
+	b.Db = BoltOpen(b.DbPath)
+
 	gMetrics.BlockedDomains = getCount(b.Db, gDomainBucket)
 
-	b.compcatDb()
+//	b.compcatDb()
 	return nil
 }
-func (b *Block) dbStagingDownload(url string, list_id int) error {
+func (b *Block) dbStagingDownload(db *bolt.DB, url string, list_id int) error {
 	var err error
 
 	Stagemtx.Lock()
 	defer Stagemtx.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
+		fmt.Println("BYE")
 		// handle error
+		return err
 	}
 	req = req.WithContext(ctx)
 
@@ -45,6 +58,7 @@ func (b *Block) dbStagingDownload(url string, list_id int) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		// handle error
+		fmt.Println("BYE")
 		return err
 	}
 
@@ -53,32 +67,44 @@ func (b *Block) dbStagingDownload(url string, list_id int) error {
 	done := make(chan bool)
 
 	go func() {
-		for scanner.Scan() {
-			// process each line
-			ok, domain := lineRead(scanner.Text())
-			if ok {
-				//see if staging already has it
-				value := DomainValue{[]int{list_id}, false}
-				err, item := getItem(b.Db, gDomainStagingBucket, domain)
-				if err != nil {
-					//add this  current list_id to it.
-					value.List_ids = append(item.Value.List_ids, list_id)
-				}
-
-				err = putItem(b.Db, gDomainStagingBucket, BucketItem{domain, value})
-				if err != nil {
-					done <- true
+		err = db.Update(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket([]byte(gDomainBucket))
+			for scanner.Scan() {
+				// process each line
+				ok, domain := lineRead(scanner.Text())
+				if ok {
+					//see if staging already has it
+					value := DomainValue{[]int{list_id}, false}
+					/*
+					err, item := getItemBucket(bucket, domain)
+					if err != nil {
+						//add this  current list_id to it.
+						value.List_ids = append(item.Value.List_ids, list_id)
+					}
+					*/
+					item := BucketItem{domain, value}
+					itemValue, err := item.EncodeValue()
+					if err == nil {
+						err = bucket.Put(item.EncodeKey(), itemValue)
+					}
+					if err != nil {
+						fmt.Println("putItem failed", domain)
+						done <- true
+					}
 				}
 			}
-		}
+			return nil
+		})
 		done <- true
 	}()
 
 	select {
 	case <-done:
 		// reading finished
+		return err
 	case <-ctx.Done():
 		// timeout
+		fmt.Println("context cancelled, reason:", ctx.Err())
 		return errors.New("processing list timed out for " + url)
 	}
 
@@ -106,8 +132,10 @@ func (b *Block) download() {
 
 		memEfficient := true
 
+		var db *bolt.DB
+
 		if memEfficient {
-			cleanBucket(b.Db, gDomainStagingBucket)
+			db = BoltOpen(b.DbPath + "-staging")
 		}
 
 		for i, url := range blocklists {
@@ -115,7 +143,7 @@ func (b *Block) download() {
 
 			if memEfficient {
 				//mem efficient download
-				b.dbStagingDownload(url, list_ids[i])
+				b.dbStagingDownload(db, url, list_ids[i])
 			} else {
 				resp, err := http.Get(url)
 				if err != nil {
@@ -135,7 +163,8 @@ func (b *Block) download() {
 
 		if memEfficient {
 			Dmtx.Lock()
-			b.transferStagingBucket()
+			db.Close()
+			b.transferStagingDB()
 			Dmtx.Unlock()
 		} else {
 			Dmtx.Lock()

@@ -53,6 +53,7 @@ type Block struct {
 	superapi_enabled bool
 
 	Db   *bolt.DB
+	DbPath string
 	Next plugin.Handler
 }
 
@@ -343,25 +344,6 @@ func (b *Block) deviceMatchBlockListTags(IP string, entry DomainValue) bool {
 	return true
 }
 
-func (b *Block) UpdateDomains(update map[string]DomainValue) error {
-
-	//b.domains = make(map[string]DomainValue)
-	//tbd, do we flush preevious buckets?
-
-	for entry, _ := range b.update {
-		if len(entry) == 0 {
-			continue
-		}
-		err := putItem(b.Db, gDomainBucket, BucketItem{entry, b.update[entry]})
-		if err != nil {
-			return err
-		}
-	}
-
-	gMetrics.BlockedDomains = getCount(b.Db, gDomainBucket)
-
-	return nil
-}
 
 func (b *Block) getDomain(name string) (DomainValue, bool) {
 	err, item := getItem(b.Db, gDomainBucket, name)
@@ -430,23 +412,6 @@ func (b *Block) setupDB(filename string) {
 	Dmtx.Lock()
 	defer Dmtx.Unlock()
 
-	options := &bolt.Options{Timeout: 1 * time.Second}
-
-	db, err := bolt.Open(filename, 0664, options)
-	if err != nil {
-		log.Fatal("Failed to open", filename, err)
-	}
-
-	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(gDomainBucket))
-		if err != nil {
-			return fmt.Errorf("could not create root bucket: %v", err)
-		}
-		return nil
-	})
-	if err != nil {
-		log.Fatal("Failed to make bucket", err)
-	}
-
-	b.Db = db
+	b.Db = BoltOpen(filename)
+	b.DbPath = filename
 }

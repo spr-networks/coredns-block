@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"strings"
-
 	"github.com/miekg/dns"
 )
 
@@ -30,7 +29,11 @@ func lineRead(txt string) (bool, string) {
 		}
 	}
 
-	return true, ""
+	if domain == "" {
+		return false, ""
+	}
+	
+	return true, domain
 
 }
 
