@@ -52,9 +52,9 @@ type Block struct {
 	config           SPRBlockConfig
 	superapi_enabled bool
 
-	Db   *bolt.DB
+	Db     *bolt.DB
 	DbPath string
-	Next plugin.Handler
+	Next   plugin.Handler
 }
 
 func New() *Block {
@@ -343,7 +343,6 @@ func (b *Block) deviceMatchBlockListTags(IP string, entry DomainValue) bool {
 	//no list
 	return true
 }
-
 
 func (b *Block) getDomain(name string) (DomainValue, bool) {
 	err, item := getItem(b.Db, gDomainBucket, name)

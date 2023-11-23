@@ -4,11 +4,10 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
-	"fmt"
-	"os"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -18,24 +17,8 @@ var blocklists = []string{"https://raw.githubusercontent.com/StevenBlack/hosts/m
 
 var DLmtx sync.RWMutex
 
-func (b *Block) transferStagingDB() error {
-	Stagemtx.Lock()
-	defer Stagemtx.Unlock()
 
-	b.Db.Close()
 
-	err := os.Rename(b.DbPath+"-staging", b.DbPath)
-	if err != nil {
-		return err
-	}
-
-	b.Db = BoltOpen(b.DbPath)
-
-	gMetrics.BlockedDomains = getCount(b.Db, gDomainBucket)
-
-//	b.compcatDb()
-	return nil
-}
 func (b *Block) dbStagingDownload(db *bolt.DB, url string, list_id int) error {
 	var err error
 
@@ -47,7 +30,6 @@ func (b *Block) dbStagingDownload(db *bolt.DB, url string, list_id int) error {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		fmt.Println("BYE")
 		// handle error
 		return err
 	}
@@ -58,7 +40,6 @@ func (b *Block) dbStagingDownload(db *bolt.DB, url string, list_id int) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		// handle error
-		fmt.Println("BYE")
 		return err
 	}
 
@@ -66,36 +47,31 @@ func (b *Block) dbStagingDownload(db *bolt.DB, url string, list_id int) error {
 	scanner := bufio.NewScanner(resp.Body)
 	done := make(chan bool)
 
+	batchSize := 16384
+	batch := make([]string, batchSize)
+	i := 0
 	go func() {
-		err = db.Update(func(tx *bolt.Tx) error {
-			bucket := tx.Bucket([]byte(gDomainBucket))
-			for scanner.Scan() {
-				// process each line
-				ok, domain := lineRead(scanner.Text())
-				if ok {
-					//see if staging already has it
-					value := DomainValue{[]int{list_id}, false}
-					/*
-					err, item := getItemBucket(bucket, domain)
-					if err != nil {
-						//add this  current list_id to it.
-						value.List_ids = append(item.Value.List_ids, list_id)
-					}
-					*/
-					item := BucketItem{domain, value}
-					itemValue, err := item.EncodeValue()
-					if err == nil {
-						err = bucket.Put(item.EncodeKey(), itemValue)
-					}
-					if err != nil {
-						fmt.Println("putItem failed", domain)
-						done <- true
-					}
-				}
+		for scanner.Scan() {
+			// process each line
+			ok, domain := lineRead(scanner.Text())
+			if !ok {
+				continue
 			}
-			return nil
-		})
+
+			batch[i] = domain
+			i++
+
+			if i%batchSize == 0 {
+				storeBatch(db, batch, i, list_id)
+				i = 0
+			}
+
+		}
+
+		//store the rest
+		storeBatch(db, batch, i, list_id)
 		done <- true
+
 	}()
 
 	select {

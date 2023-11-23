@@ -3,8 +3,8 @@ package block
 import (
 	//"os"
 	//"strings"
-	"testing"
 	"fmt"
+	"testing"
 )
 
 func TestDownload(t *testing.T) {
@@ -17,7 +17,7 @@ func TestDownload(t *testing.T) {
 	if err != nil {
 		log.Fatal("failed to download", err)
 	}
-	fmt.Println("done",  getCount(db, gDomainBucket))
+	fmt.Println("done", getCount(db, gDomainBucket))
 
 	db.Close()
 	err = b.transferStagingDB()

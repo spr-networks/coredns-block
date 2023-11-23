@@ -3,6 +3,7 @@ package block
 import (
 	"encoding/json"
 	"errors"
+  "fmt"
 	"os"
 	"time"
 
@@ -143,13 +144,13 @@ func getCount(db *bolt.DB, bucket string) int64 {
 }
 
 func getItemBucket(b *bolt.Bucket, key string) (error, BucketItem) {
-  bucketItem := BucketItem{}
-  v := b.Get([]byte(key))
-  if v == nil {
-    return ErrBucketItemGet, bucketItem
-  }
-  bucketItem.DecodeValue(v)
-  return nil, bucketItem
+	bucketItem := BucketItem{}
+	v := b.Get([]byte(key))
+	if v == nil {
+		return ErrBucketItemGet, bucketItem
+	}
+	bucketItem.DecodeValue(v)
+	return nil, bucketItem
 }
 
 func getItem(db *bolt.DB, bucket string, key string) (error, BucketItem) {
@@ -194,30 +195,80 @@ func BoltOpen(filename string) *bolt.DB {
 	return db
 }
 
+func storeBatch(db *bolt.DB, domains []string, idx int, list_id int) error {
+	err := db.Batch(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(gDomainBucket))
+
+		i := 0
+		for i < idx {
+			domain := domains[i]
+			i++
+
+			value := DomainValue{[]int{list_id}, false}
+			//see if bucket already has it
+			err, item := getItemBucket(bucket, domain)
+			if err != nil {
+				//add this  current list_id to it.
+				value.List_ids = append(item.Value.List_ids, list_id)
+			}
+
+			item = BucketItem{domain, value}
+			itemValue, err := item.EncodeValue()
+			if err == nil {
+				err = bucket.Put(item.EncodeKey(), itemValue)
+			}
+			if err != nil {
+				fmt.Println("putItem failed", domain)
+				return err
+			}
+		}
+		return nil
+	})
+	return err
+}
+
+func (b *Block) transferStagingDB() error {
+	Stagemtx.Lock()
+	defer Stagemtx.Unlock()
+
+	b.Db.Close()
+
+	err := os.Rename(b.DbPath+"-staging", b.DbPath)
+	if err != nil {
+		return err
+	}
+
+	b.Db = BoltOpen(b.DbPath)
+
+	gMetrics.BlockedDomains = getCount(b.Db, gDomainBucket)
+
+	return nil
+}
+
 
 func (b *Block) UpdateDomains(update map[string]DomainValue) error {
-  err := b.Db.Update(func(tx *bolt.Tx) error {
-    bucket := tx.Bucket([]byte(gDomainBucket))
+	err := b.Db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(gDomainBucket))
 
-    for entry, v := range b.update {
-      if entry == "" {
-        continue
-      }
-      item := BucketItem{entry, v}
-      itemValue, err := item.EncodeValue()
-      if err == nil {
-        err = bucket.Put(item.EncodeKey(), itemValue)
-      }
-      if err != nil {
-        return err
-      }
-    }
-    return nil
-  })
+		for entry, v := range b.update {
+			if entry == "" {
+				continue
+			}
+			item := BucketItem{entry, v}
+			itemValue, err := item.EncodeValue()
+			if err == nil {
+				err = bucket.Put(item.EncodeKey(), itemValue)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 
-  if err != nil {
-    return err
-  }
+	if err != nil {
+		return err
+	}
 
 	gMetrics.BlockedDomains = getCount(b.Db, gDomainBucket)
 

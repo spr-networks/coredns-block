@@ -2,9 +2,9 @@ package block
 
 import (
 	"bufio"
+	"github.com/miekg/dns"
 	"io"
 	"strings"
-	"github.com/miekg/dns"
 )
 
 func lineRead(txt string) (bool, string) {
@@ -32,7 +32,7 @@ func lineRead(txt string) (bool, string) {
 	if domain == "" {
 		return false, ""
 	}
-	
+
 	return true, domain
 
 }
