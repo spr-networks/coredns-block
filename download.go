@@ -17,7 +17,6 @@ func (b *Block) download() {
 		DLmtx.Lock()
 		defer DLmtx.Unlock()
 
-		domains := 0
 		list_ids := []int{}
 		if b.superapi_enabled {
 			//override blocklist with config
@@ -42,7 +41,6 @@ func (b *Block) download() {
 			if err := listRead(resp.Body, b.update, int64(list_ids[i])); err != nil {
 				log.Warningf("Failed to parse block list %q: %s", url, err)
 			}
-			domains += len(b.update)
 			resp.Body.Close()
 
 			log.Infof("Block list update finished %q %d", url, len(b.update))
@@ -59,8 +57,8 @@ func (b *Block) download() {
 
 		b.update = make(map[string]DomainValue)
 
-		gMetrics.BlockedDomains = int64(domains)
-		log.Infof("Block lists updated: %d domains added", domains)
+		gMetrics.BlockedDomains = int64(len(b.domains))
+		log.Infof("Block lists updated: %d domains added", gMetrics.BlockedDomains)
 	}()
 }
 
