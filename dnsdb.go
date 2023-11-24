@@ -141,6 +141,7 @@ func NutsOpen(filename string) *nutsdb.DB {
 		Dir:          filename,
 		EntryIdxMode: nutsdb.HintKeyAndRAMIdxMode, // Use HintKeyAndRAMIdxMode for smaller file size
 		SegmentSize:  16 * 1024 * 1024,            // 16MB instead of the default 256MB
+		RWMode: nutsdb.MMap,
 		// Other options...
 	}
 
