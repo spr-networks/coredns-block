@@ -25,7 +25,6 @@ import (
 	"github.com/nutsdb/nutsdb"
 )
 
-
 var log = clog.NewWithPlugin("block")
 var gDomainBucket = "domains"
 

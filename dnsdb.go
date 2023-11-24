@@ -3,10 +3,10 @@ package block
 import (
 	"encoding/json"
 	"errors"
-  "fmt"
+	"fmt"
 	"os"
 
-  "github.com/nutsdb/nutsdb"
+	"github.com/nutsdb/nutsdb"
 )
 
 var (
@@ -51,109 +51,103 @@ func (item *BucketItem) DecodeValue(rawValue []byte) error {
 	return nil
 }
 
-
 func getItems(db *nutsdb.DB, bucket string) (error, []BucketItem) {
-    var items []BucketItem
+	var items []BucketItem
 
-    err := db.View(func(tx *nutsdb.Tx) error {
-        entries, err := tx.GetAll(bucket)
-        if err != nil {
-            if err == nutsdb.ErrBucketEmpty {
-                return nil // Return no error if the bucket is empty
-            }
-            return err
-        }
+	err := db.View(func(tx *nutsdb.Tx) error {
+		entries, err := tx.GetAll(bucket)
+		if err != nil {
+			if err == nutsdb.ErrBucketEmpty {
+				return nil // Return no error if the bucket is empty
+			}
+			return err
+		}
 
-        for _, entry := range entries {
-            bucketItem := BucketItem{Key: string(entry.Key)}
-            bucketItem.DecodeValue(entry.Value)
-            items = append(items, bucketItem)
-        }
-        return nil
-    })
+		for _, entry := range entries {
+			bucketItem := BucketItem{Key: string(entry.Key)}
+			bucketItem.DecodeValue(entry.Value)
+			items = append(items, bucketItem)
+		}
+		return nil
+	})
 
-    return err, items
+	return err, items
 }
 func putItem(db *nutsdb.DB, bucket string, item BucketItem) error {
-    itemKey := item.EncodeKey()
-    itemValue, err := item.EncodeValue()
-    if err != nil {
-        return err
-    }
+	itemKey := item.EncodeKey()
+	itemValue, err := item.EncodeValue()
+	if err != nil {
+		return err
+	}
 
-    err = db.Update(func(tx *nutsdb.Tx) error {
-        return tx.Put(bucket, itemKey, itemValue, 0)
-    })
+	err = db.Update(func(tx *nutsdb.Tx) error {
+		return tx.Put(bucket, itemKey, itemValue, 0)
+	})
 
-    return err
+	return err
 }
 func getCount(db *nutsdb.DB, bucket string) int64 {
-    var keyN int64 = 0
-    tx, err := db.Begin(false)
+	var keyN int64 = 0
+	tx, err := db.Begin(false)
 
-    if err != nil {
-        fmt.Println(err)
-        return keyN
-    }
+	if err != nil {
+		fmt.Println(err)
+		return keyN
+	}
 
-    defer tx.Rollback()
+	defer tx.Rollback()
 
-    iterator := nutsdb.NewIterator(tx, gDomainBucket, nutsdb.IteratorOptions{Reverse: false})
+	iterator := nutsdb.NewIterator(tx, gDomainBucket, nutsdb.IteratorOptions{Reverse: false})
 
-    for {
-        ok := iterator.Next()
+	for {
+		ok := iterator.Next()
 
-        if !ok {
-          return keyN
-        }
-        keyN++
-    }
+		if !ok {
+			return keyN
+		}
+		keyN++
+	}
 
-
-
-
-    return keyN
+	return keyN
 }
 
-
 func getItemTx(tx *nutsdb.Tx, bucket string, key string) (error, BucketItem) {
-  bucketItem := BucketItem{}
-  entry, err := tx.Get(bucket, []byte(key))
-  if err != nil {
-    return err, bucketItem
-  }
+	bucketItem := BucketItem{}
+	entry, err := tx.Get(bucket, []byte(key))
+	if err != nil {
+		return err, bucketItem
+	}
 
-  bucketItem.DecodeValue(entry.Value)
-  return nil, bucketItem
+	bucketItem.DecodeValue(entry.Value)
+	return nil, bucketItem
 }
 
 func getItem(db *nutsdb.DB, bucket string, key string) (error, BucketItem) {
 	bucketItem := BucketItem{}
 
 	err := db.View(func(tx *nutsdb.Tx) error {
-    err, v := getItemTx(tx, bucket, key)
-    if err == nil {
-      bucketItem = v
-    }
-    return err
+		err, v := getItemTx(tx, bucket, key)
+		if err == nil {
+			bucketItem = v
+		}
+		return err
 	})
 
 	return err, bucketItem
 }
 
 func NutsOpen(filename string) *nutsdb.DB {
-  opts := nutsdb.Options{
-      Dir: filename,
-      EntryIdxMode: nutsdb.HintKeyAndRAMIdxMode, // Use HintKeyAndRAMIdxMode for smaller file size
-      SegmentSize: 16 * 1024 * 1024, // 16MB instead of the default 256MB
-      // Other options...
-  }
+	opts := nutsdb.Options{
+		Dir:          filename,
+		EntryIdxMode: nutsdb.HintKeyAndRAMIdxMode, // Use HintKeyAndRAMIdxMode for smaller file size
+		SegmentSize:  16 * 1024 * 1024,            // 16MB instead of the default 256MB
+		// Other options...
+	}
 
-
-  db, err := nutsdb.Open(opts)
-  if err != nil {
-      log.Fatal(err)
-  }
+	db, err := nutsdb.Open(opts)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return db
 }
@@ -194,7 +188,7 @@ func (b *Block) transferStagingDB() error {
 
 	b.Db.Close()
 
-  os.RemoveAll(b.DbPath)
+	os.RemoveAll(b.DbPath)
 
 	err := os.Rename(b.DbPath+"-staging", b.DbPath)
 	if err != nil {
@@ -207,7 +201,6 @@ func (b *Block) transferStagingDB() error {
 
 	return nil
 }
-
 
 func (b *Block) UpdateDomains(update map[string]DomainValue) error {
 	err := b.Db.Update(func(tx *nutsdb.Tx) error {
