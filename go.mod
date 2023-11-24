@@ -18,6 +18,7 @@ require (
 	github.com/quic-go/quic-go v0.40.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spr-networks/sprbus v0.1.7
+	github.com/tidwall/btree v1.7.0 // indirect
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231120223509-83a465c0220f // indirect
 )
