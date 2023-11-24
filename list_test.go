@@ -1,6 +1,7 @@
 package block
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -14,15 +15,17 @@ com
 `
 
 	b := new(Block)
+	os.Remove("/tmp/list_test.db")
+	b.setupDB("/tmp/list_test.db")
 
 	r := strings.NewReader(list)
 	l := make(map[string]DomainValue)
 	listRead(r, l, -1)
 	b.update = l
 
-	b.domains = make(map[string]DomainValue)
-	for entry, _ := range b.update {
-		b.domains[entry] = b.update[entry]
+	err := b.UpdateDomains(b.update)
+	if err != nil {
+		log.Fatal("failed to update list_test -- ", err)
 	}
 
 	tests := []struct {
