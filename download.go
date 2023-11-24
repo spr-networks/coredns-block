@@ -17,8 +17,6 @@ var blocklists = []string{"https://raw.githubusercontent.com/StevenBlack/hosts/m
 
 var DLmtx sync.RWMutex
 
-
-
 func (b *Block) dbStagingDownload(db *bolt.DB, url string, list_id int) error {
 	var err error
 
@@ -152,6 +150,19 @@ func (b *Block) download() {
 		log.Infof("Block lists updated: %d domains added", gMetrics.BlockedDomains)
 	}()
 }
+func (b *Block) ShouldRetryRefresh() bool {
+	//already have some blocked, dont retry
+	if gMetrics.BlockedDomains != 0 {
+		return false
+	}
+
+	//using default list or config has at least one list
+	if !b.superapi_enabled || len(b.config.BlockLists) > 0 {
+		return true
+	}
+
+	return false
+}
 
 func (b *Block) refresh() {
 	refreshTime := time.Hour * 24 * 7
@@ -163,7 +174,16 @@ func (b *Block) refresh() {
 	for {
 		select {
 		case <-tick.C:
-			b.download()
+
+			retries := 3
+			for retries > 0 {
+				b.download()
+				if !b.ShouldRetryRefresh() {
+					break
+				}
+				retries--
+				time.Sleep(time.Minute * 5)
+			}
 
 		case <-b.stop:
 			return
