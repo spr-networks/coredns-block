@@ -5,12 +5,9 @@ import (
 	"errors"
   "fmt"
 	"os"
-	"time"
 
-	bolt "go.etcd.io/bbolt"
+  "github.com/nutsdb/nutsdb"
 )
-
-//import "fmt"
 
 var (
 	ErrBucketList        = errors.New("error listing buckets")
@@ -54,151 +51,115 @@ func (item *BucketItem) DecodeValue(rawValue []byte) error {
 	return nil
 }
 
-func getItems(db *bolt.DB, bucket string) (error, []BucketItem) {
-	items := []BucketItem{}
 
-	err := db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucket))
-		if b == nil {
-			return ErrBucketMissing
-		}
-		b.ForEach(func(k, v []byte) error {
-			bucketItem := BucketItem{Key: string(k)}
-			bucketItem.DecodeValue(v)
-			items = append(items, bucketItem)
-			return nil
-		})
-		return nil
-	})
+func getItems(db *nutsdb.DB, bucket string) (error, []BucketItem) {
+    var items []BucketItem
 
-	return err, items
+    err := db.View(func(tx *nutsdb.Tx) error {
+        entries, err := tx.GetAll(bucket)
+        if err != nil {
+            if err == nutsdb.ErrBucketEmpty {
+                return nil // Return no error if the bucket is empty
+            }
+            return err
+        }
+
+        for _, entry := range entries {
+            bucketItem := BucketItem{Key: string(entry.Key)}
+            bucketItem.DecodeValue(entry.Value)
+            items = append(items, bucketItem)
+        }
+        return nil
+    })
+
+    return err, items
+}
+func putItem(db *nutsdb.DB, bucket string, item BucketItem) error {
+    itemKey := item.EncodeKey()
+    itemValue, err := item.EncodeValue()
+    if err != nil {
+        return err
+    }
+
+    err = db.Update(func(tx *nutsdb.Tx) error {
+        return tx.Put(bucket, itemKey, itemValue, 0)
+    })
+
+    return err
+}
+func getCount(db *nutsdb.DB, bucket string) int64 {
+    var keyN int64 = 0
+    tx, err := db.Begin(false)
+
+    if err != nil {
+        fmt.Println(err)
+        return keyN
+    }
+
+    defer tx.Rollback()
+
+    iterator := nutsdb.NewIterator(tx, gDomainBucket, nutsdb.IteratorOptions{Reverse: false})
+
+    for {
+        ok := iterator.Next()
+
+        if !ok {
+          return keyN
+        }
+        keyN++
+    }
+
+
+
+
+    return keyN
 }
 
-func putItem(db *bolt.DB, bucket string, item BucketItem) error {
-	itemKey := item.EncodeKey()
-	itemValue, err := item.EncodeValue()
-	if err != nil {
-		return err
-	}
 
-	err = db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucket))
-		err = b.Put(itemKey, itemValue)
-		return err
-	})
+func getItemTx(tx *nutsdb.Tx, bucket string, key string) (error, BucketItem) {
+  bucketItem := BucketItem{}
+  entry, err := tx.Get(bucket, []byte(key))
+  if err != nil {
+    return err, bucketItem
+  }
 
-	return err
+  bucketItem.DecodeValue(entry.Value)
+  return nil, bucketItem
 }
 
-func cleanBucket(db *bolt.DB, bucket string) error {
-
-	err := db.Update(func(tx *bolt.Tx) error {
-		return tx.DeleteBucket([]byte(bucket))
-	})
-
-	return err
-}
-
-func (b *Block) compcatDb() error {
-
-	dst, err := bolt.Open(b.DbPath+".tmp", 0664, nil)
-	defer dst.Close()
-
-	if err != nil {
-		return err
-	}
-
-	err = bolt.Compact(dst, b.Db, 0)
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(b.DbPath+".tmp", b.DbPath)
-	if err != nil {
-		return err
-	}
-
-	//close and re-open db
-	b.Db.Close()
-
-	options := &bolt.Options{Timeout: 1 * time.Second}
-	db, err := bolt.Open(b.DbPath, 0664, options)
-	if err != nil {
-		log.Fatal("Failed to open", b.DbPath, err)
-	}
-	b.Db = db
-	return nil
-}
-
-func getCount(db *bolt.DB, bucket string) int64 {
-	keyN := int64(0)
-	db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucket))
-		if b != nil {
-			stats := b.Stats()
-			keyN = int64(stats.KeyN)
-		}
-		return nil
-	})
-	return keyN
-}
-
-func getItemBucket(b *bolt.Bucket, key string) (error, BucketItem) {
-	bucketItem := BucketItem{}
-	v := b.Get([]byte(key))
-	if v == nil {
-		return ErrBucketItemGet, bucketItem
-	}
-	bucketItem.DecodeValue(v)
-	return nil, bucketItem
-}
-
-func getItem(db *bolt.DB, bucket string, key string) (error, BucketItem) {
+func getItem(db *nutsdb.DB, bucket string, key string) (error, BucketItem) {
 	bucketItem := BucketItem{}
 
-	err := db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucket))
-		if b == nil {
-			return ErrBucketMissing
-		}
-		v := b.Get([]byte(key))
-		if v == nil {
-			return ErrBucketItemGet
-		}
-		return bucketItem.DecodeValue(v)
+	err := db.View(func(tx *nutsdb.Tx) error {
+    err, v := getItemTx(tx, bucket, key)
+    if err == nil {
+      bucketItem = v
+    }
+    return err
 	})
 
 	return err, bucketItem
 }
 
-func BoltOpen(filename string) *bolt.DB {
-	options := &bolt.Options{Timeout: 1 * time.Second}
+func NutsOpen(filename string) *nutsdb.DB {
+  opts := nutsdb.Options{
+      Dir: filename,
+      EntryIdxMode: nutsdb.HintKeyAndRAMIdxMode, // Use HintKeyAndRAMIdxMode for smaller file size
+      SegmentSize: 16 * 1024 * 1024, // 16MB instead of the default 256MB
+      // Other options...
+  }
 
-	db, err := bolt.Open(filename, 0664, options)
-	if err != nil {
-		log.Fatal("Failed to open ", filename, err)
-	}
 
-	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(gDomainBucket))
-		if err != nil {
-			log.Fatal("could not create bucket", err)
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		log.Fatal("Failed to make bucket", err)
-	}
+  db, err := nutsdb.Open(opts)
+  if err != nil {
+      log.Fatal(err)
+  }
 
 	return db
 }
 
-func storeBatch(db *bolt.DB, domains []string, idx int, list_id int) error {
-	err := db.Batch(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(gDomainBucket))
-
+func storeBatch(db *nutsdb.DB, domains []string, idx int, list_id int) error {
+	err := db.Update(func(tx *nutsdb.Tx) error {
 		i := 0
 		for i < idx {
 			domain := domains[i]
@@ -206,7 +167,7 @@ func storeBatch(db *bolt.DB, domains []string, idx int, list_id int) error {
 
 			value := DomainValue{[]int{list_id}, false}
 			//see if bucket already has it
-			err, item := getItemBucket(bucket, domain)
+			err, item := getItemTx(tx, gDomainBucket, domain)
 			if err != nil {
 				//add this  current list_id to it.
 				value.List_ids = append(item.Value.List_ids, list_id)
@@ -215,7 +176,7 @@ func storeBatch(db *bolt.DB, domains []string, idx int, list_id int) error {
 			item = BucketItem{domain, value}
 			itemValue, err := item.EncodeValue()
 			if err == nil {
-				err = bucket.Put(item.EncodeKey(), itemValue)
+				err = tx.Put(gDomainBucket, item.EncodeKey(), itemValue, 0)
 			}
 			if err != nil {
 				fmt.Println("putItem failed", domain)
@@ -233,12 +194,14 @@ func (b *Block) transferStagingDB() error {
 
 	b.Db.Close()
 
+  os.RemoveAll(b.DbPath)
+
 	err := os.Rename(b.DbPath+"-staging", b.DbPath)
 	if err != nil {
 		return err
 	}
 
-	b.Db = BoltOpen(b.DbPath)
+	b.Db = NutsOpen(b.DbPath)
 
 	gMetrics.BlockedDomains = getCount(b.Db, gDomainBucket)
 
@@ -247,9 +210,7 @@ func (b *Block) transferStagingDB() error {
 
 
 func (b *Block) UpdateDomains(update map[string]DomainValue) error {
-	err := b.Db.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(gDomainBucket))
-
+	err := b.Db.Update(func(tx *nutsdb.Tx) error {
 		for entry, v := range b.update {
 			if entry == "" {
 				continue
@@ -257,7 +218,7 @@ func (b *Block) UpdateDomains(update map[string]DomainValue) error {
 			item := BucketItem{entry, v}
 			itemValue, err := item.EncodeValue()
 			if err == nil {
-				err = bucket.Put(item.EncodeKey(), itemValue)
+				err = tx.Put(gDomainBucket, item.EncodeKey(), itemValue, 0)
 			}
 			if err != nil {
 				return err

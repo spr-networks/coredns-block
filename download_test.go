@@ -1,7 +1,7 @@
 package block
 
 import (
-	//"os"
+	"os"
 	//"strings"
 	"fmt"
 	"testing"
@@ -10,9 +10,10 @@ import (
 func TestDownload(t *testing.T) {
 
 	b := new(Block)
+	os.RemoveAll("/tmp/download.go")
 	b.setupDB("/tmp/download.go")
 
-	db := BoltOpen(b.DbPath + "-staging")
+	db := NutsOpen(b.DbPath + "-staging")
 	err := b.dbStagingDownload(db, "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", 0)
 	if err != nil {
 		log.Fatal("failed to download", err)

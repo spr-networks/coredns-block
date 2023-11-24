@@ -21,9 +21,10 @@ import (
 	"github.com/miekg/dns"
 
 	"github.com/spr-networks/sprbus"
+
+	"github.com/nutsdb/nutsdb"
 )
 
-import bolt "go.etcd.io/bbolt"
 
 var log = clog.NewWithPlugin("block")
 var gDomainBucket = "domains"
@@ -52,7 +53,7 @@ type Block struct {
 	config           SPRBlockConfig
 	superapi_enabled bool
 
-	Db     *bolt.DB
+	Db     *nutsdb.DB
 	DbPath string
 	Next   plugin.Handler
 }
@@ -411,6 +412,6 @@ func (b *Block) setupDB(filename string) {
 	Dmtx.Lock()
 	defer Dmtx.Unlock()
 
-	b.Db = BoltOpen(filename)
+	b.Db = NutsOpen(filename)
 	b.DbPath = filename
 }

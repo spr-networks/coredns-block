@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	bolt "go.etcd.io/bbolt"
+	"github.com/nutsdb/nutsdb"
 )
 
 // our default block lists.
@@ -19,7 +19,7 @@ var DLmtx sync.RWMutex
 
 
 
-func (b *Block) dbStagingDownload(db *bolt.DB, url string, list_id int) error {
+func (b *Block) dbStagingDownload(db *nutsdb.DB, url string, list_id int) error {
 	var err error
 
 	Stagemtx.Lock()
@@ -108,10 +108,10 @@ func (b *Block) download() {
 
 		memEfficient := true
 
-		var db *bolt.DB
+		var db *nutsdb.DB
 
 		if memEfficient {
-			db = BoltOpen(b.DbPath + "-staging")
+			db = NutsOpen(b.DbPath + "-staging")
 		}
 
 		for i, url := range blocklists {
