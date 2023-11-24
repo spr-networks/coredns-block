@@ -3,7 +3,7 @@ package block
 import (
 	"encoding/json"
 	"errors"
-  "fmt"
+	"fmt"
 	"os"
 	"time"
 
@@ -87,6 +87,9 @@ func putItem(db *bolt.DB, bucket string, item BucketItem) error {
 		return err
 	})
 
+	if err == nil {
+		db.Sync()
+	}
 	return err
 }
 
@@ -95,6 +98,10 @@ func cleanBucket(db *bolt.DB, bucket string) error {
 	err := db.Update(func(tx *bolt.Tx) error {
 		return tx.DeleteBucket([]byte(bucket))
 	})
+
+	if err == nil {
+		db.Sync()
+	}
 
 	return err
 }
@@ -172,7 +179,7 @@ func getItem(db *bolt.DB, bucket string, key string) (error, BucketItem) {
 }
 
 func BoltOpen(filename string) *bolt.DB {
-	options := &bolt.Options{Timeout: 1 * time.Second}
+	options := &bolt.Options{Timeout: 1 * time.Second, NoSync: true}
 
 	db, err := bolt.Open(filename, 0664, options)
 	if err != nil {
@@ -190,6 +197,8 @@ func BoltOpen(filename string) *bolt.DB {
 
 	if err != nil {
 		log.Fatal("Failed to make bucket", err)
+	} else {
+		db.Sync()
 	}
 
 	return db
@@ -224,6 +233,9 @@ func storeBatch(db *bolt.DB, domains []string, idx int, list_id int) error {
 		}
 		return nil
 	})
+	if err == nil {
+		db.Sync()
+	}
 	return err
 }
 
@@ -244,7 +256,6 @@ func (b *Block) transferStagingDB() error {
 
 	return nil
 }
-
 
 func (b *Block) UpdateDomains(update map[string]DomainValue) error {
 	err := b.Db.Update(func(tx *bolt.Tx) error {
@@ -269,6 +280,7 @@ func (b *Block) UpdateDomains(update map[string]DomainValue) error {
 	if err != nil {
 		return err
 	}
+	b.Db.Sync()
 
 	gMetrics.BlockedDomains = getCount(b.Db, gDomainBucket)
 
