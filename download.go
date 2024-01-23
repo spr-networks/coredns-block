@@ -157,11 +157,11 @@ func (b *Block) ShouldRetryRefresh() bool {
 	}
 
 	//using default list or config has at least one list
-	if !b.superapi_enabled || len(b.config.BlockLists) > 0 {
-		return true
+	if !b.superapi_enabled || len(b.config.BlockLists) == 0 {
+		return false
 	}
 
-	return false
+	return true
 }
 
 func (b *Block) refresh() {
