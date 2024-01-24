@@ -7,6 +7,7 @@ import (
 	"github.com/coredns/caddy"
 
 	"sync"
+	"time"
 )
 
 var doOnce sync.Once
@@ -45,7 +46,15 @@ func setup(c *caddy.Controller) error {
 					block.loadSPRConfig()
 				}
 
-				block.download()
+				retries := 3
+				for retries > 0 {
+					block.download()
+					if !block.ShouldRetryRefresh() {
+						break
+					}
+					retries--
+					time.Sleep(time.Minute * 5)
+				}
 
 				if block.superapi_enabled {
 					block.runAPI()
