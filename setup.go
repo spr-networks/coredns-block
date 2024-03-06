@@ -56,7 +56,9 @@ func setup(c *caddy.Controller) error {
 					time.Sleep(time.Minute * 5)
 				}
 
+				fmt.Println(block.superapi_enabled)
 				if block.superapi_enabled {
+					fmt.Println("START")
 					block.runAPI()
 				}
 			}()
