@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
@@ -216,6 +217,7 @@ func (b *Block) dumpEntries(w http.ResponseWriter, r *http.Request) {
 }
 
 var IPTagMap = make(map[string][]string)
+var IPPolicyMap = make(map[string][]string)
 
 var IPTagmtx sync.RWMutex
 
@@ -226,6 +228,7 @@ type DeviceEntry struct {
 	VLANTag    string
 	RecentIP   string
 	PSKEntry   PSKEntry
+	Policies   []string //tbd: dns quarantine mode in the future?
 	Groups     []string
 	DeviceTags []string
 }
@@ -258,6 +261,7 @@ func APIDevices() (map[string]DeviceEntry, error) {
 
 func (b *Block) updateIPTags() {
 	newMap := make(map[string][]string)
+	newPolicyMap := make(map[string][]string)
 
 	devices, err := APIDevices()
 	if err != nil {
@@ -268,11 +272,13 @@ func (b *Block) updateIPTags() {
 	for _, entry := range devices {
 		if entry.RecentIP != "" {
 			newMap[entry.RecentIP] = entry.DeviceTags
+			newPolicyMap[entry.RecentIP] = entry.Policies
 		}
 	}
 
 	IPTagmtx.Lock()
 	IPTagMap = newMap
+	IPPolicyMap = newPolicyMap
 	IPTagmtx.Unlock()
 }
 
@@ -291,6 +297,17 @@ func (b *Block) refreshTags() {
 	}
 }
 
+func IPQuarantined(IP string) bool {
+	IPTagmtx.RLock()
+	policies, policy_exists := IPPolicyMap[IP]
+	IPTagmtx.RUnlock()
+
+	if policy_exists {
+		return slices.Contains(policies, "quarantine")
+	}
+	return false
+}
+
 func IPHasTags(IP string, applied_tags []string) bool {
 
 	if len(applied_tags) == 0 {
@@ -300,6 +317,7 @@ func IPHasTags(IP string, applied_tags []string) bool {
 	IPTagmtx.RLock()
 	device_tags, exists := IPTagMap[IP]
 	IPTagmtx.RUnlock()
+
 	if !exists {
 		//IP not mapped as having tags, return false
 		return false
@@ -361,6 +379,15 @@ func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *st
 				//not blocked
 				return false
 			}
+		}
+
+		if IPQuarantined(IP) {
+			target := "0.0.0.0"
+			if b.config.QuarantineHostIP != "" {
+				target = b.config.QuarantineHostIP
+			}
+			*returnIP = target
+			return false
 		}
 
 		if matchOverride(IP, fullname, name, b.config.PermitDomains, returnIP) {

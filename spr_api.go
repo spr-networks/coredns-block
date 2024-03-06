@@ -44,6 +44,7 @@ type SPRBlockConfig struct {
 	BlockDomains       []DomainOverride
 	ClientIPExclusions []string //these IPs should not have ad blocking
 	RefreshSeconds     int
+	QuarantineHostIP   string //for devices in quarantine mode
 }
 
 var Configmtx sync.Mutex
@@ -79,7 +80,6 @@ func (b *Block) showConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
-
 	var overrides *[]DomainOverride = nil
 
 	entry := DomainOverride{}
@@ -142,6 +142,31 @@ func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
 		}
 
 		(*overrides) = append((*overrides)[:found], (*overrides)[found+1:]...)
+		b.saveConfig()
+	}
+
+}
+
+func (b *Block) quarantineHost(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPut {
+		var override string
+		err := json.NewDecoder(r.Body).Decode(&override)
+
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		ip := net.ParseIP(override)
+		if ip == nil {
+			err = errors.New("Invalid IP")
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		b.config.QuarantineHostIP = override
+		b.saveConfig()
+	} else if r.Method == http.MethodDelete {
+		b.config.QuarantineHostIP = ""
 		b.saveConfig()
 	}
 
@@ -319,6 +344,7 @@ func (b *Block) runAPI() {
 	unix_plugin_router.HandleFunc("/config", b.showConfig).Methods("GET")
 	unix_plugin_router.HandleFunc("/setRefresh", b.setRefresh).Methods("PUT")
 	unix_plugin_router.HandleFunc("/override", b.modifyOverrideDomains).Methods("PUT", "DELETE")
+	unix_plugin_router.HandleFunc("/quarantineHost", b.quarantineHost).Methods("PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/blocklists", b.modifyBlockLists).Methods("GET", "PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/exclusions", b.modifyExclusions).Methods("GET", "PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/dump_domains", b.dumpEntries).Methods("GET")
