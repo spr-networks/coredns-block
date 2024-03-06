@@ -46,6 +46,10 @@ func setup(c *caddy.Controller) error {
 					block.loadSPRConfig()
 				}
 
+				if block.superapi_enabled {
+					block.runAPI()
+				}
+
 				retries := 3
 				for retries > 0 {
 					block.download()
@@ -57,9 +61,6 @@ func setup(c *caddy.Controller) error {
 					time.Sleep(time.Minute * 5)
 				}
 
-				if block.superapi_enabled {
-					block.runAPI()
-				}
 			}()
 
 			go func() { block.refresh() }()
