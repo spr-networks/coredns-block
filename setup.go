@@ -49,6 +49,7 @@ func setup(c *caddy.Controller) error {
 				retries := 3
 				for retries > 0 {
 					block.download()
+					time.Sleep(time.Second * 10)
 					if !block.ShouldRetryRefresh() {
 						break
 					}
