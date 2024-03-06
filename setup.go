@@ -5,7 +5,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 
 	"github.com/coredns/caddy"
-
+	"fmt"
 	"sync"
 	"time"
 )
