@@ -151,6 +151,11 @@ func (b *Block) download() {
 	}()
 }
 func (b *Block) ShouldRetryRefresh() bool {
+	//no lists
+	if len(b.config.BlockLists) == 0 {
+		return false
+	}
+
 	//already have some blocked, dont retry
 	if gMetrics.BlockedDomains != 0 {
 		return false
