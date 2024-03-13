@@ -150,6 +150,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 		resp := new(dns.Msg)
 		resp.SetRcode(r, dns.RcodeNameError)
+		resp.Answer[0].Header().Ttl = 1
 		w.WriteMsg(resp)
 
 		event := DNSBlockEvent{state.IP(), state.Name()}
@@ -225,6 +226,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 						//we should block this now
 						resp := new(dns.Msg)
 						resp.SetRcode(r, dns.RcodeNameError)
+						resp.Answer[0].Header().Ttl = 1
 						w.WriteMsg(resp)
 
 						bus_event := DNSBlockRebindingEvent{state.IP(), ip.String(), state.Name()}
