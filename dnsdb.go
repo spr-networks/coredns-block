@@ -106,7 +106,7 @@ func cleanBucket(db *bolt.DB, bucket string) error {
 	return err
 }
 
-func (b *Block) compcatDb() error {
+func (b *Block) compactDb() error {
 
 	dst, err := bolt.Open(b.DbPath+".tmp", 0664, nil)
 	defer dst.Close()
@@ -240,9 +240,6 @@ func storeBatch(db *bolt.DB, domains []string, idx int, list_id int) error {
 }
 
 func (b *Block) transferStagingDB() error {
-	Stagemtx.Lock()
-	defer Stagemtx.Unlock()
-
 	b.Db.Close()
 
 	err := os.Rename(b.DbPath+"-staging", b.DbPath)
