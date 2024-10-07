@@ -2,7 +2,8 @@ module github.com/spr-networks/coredns-block
 
 go 1.22.0
 
-toolchain go1.23.2
+
+toolchain go1.22.3
 
 require (
 	github.com/coredns/caddy v1.1.1

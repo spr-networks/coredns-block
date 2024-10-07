@@ -109,6 +109,7 @@ func (b *Block) download() {
 		var db *bolt.DB
 
 		if memEfficient {
+			Stagemtx.Lock()
 			db = BoltOpen(b.DbPath + "-staging")
 		}
 
@@ -139,6 +140,7 @@ func (b *Block) download() {
 			Dmtx.Lock()
 			db.Close()
 			b.transferStagingDB()
+			Stagemtx.Unlock()
 			Dmtx.Unlock()
 		} else {
 			Dmtx.Lock()
