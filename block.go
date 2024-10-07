@@ -440,4 +440,6 @@ func (b *Block) setupDB(filename string) {
 
 	b.Db = BoltOpen(filename)
 	b.DbPath = filename
+
+	gMetrics.BlockedDomains = getCount(b.Db, gDomainBucket)
 }
