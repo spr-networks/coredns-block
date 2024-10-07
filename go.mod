@@ -2,6 +2,7 @@ module github.com/spr-networks/coredns-block
 
 go 1.22.0
 
+
 toolchain go1.22.3
 
 require (

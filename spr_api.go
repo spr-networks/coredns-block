@@ -39,12 +39,13 @@ type DomainOverride struct {
 }
 
 type SPRBlockConfig struct {
-	BlockLists         []ListEntry //list of URIs with DNS block lists
-	PermitDomains      []DomainOverride
-	BlockDomains       []DomainOverride
-	ClientIPExclusions []string //these IPs should not have ad blocking
-	RefreshSeconds     int
-	QuarantineHostIP   string //for devices in quarantine mode
+	BlockLists            []ListEntry //list of URIs with DNS block lists
+	PermitDomains         []DomainOverride
+	BlockDomains          []DomainOverride
+	ClientIPExclusions    []string //these IPs should not have ad blocking
+	RefreshSeconds        int
+	QuarantineHostIP      string //for devices in quarantine mode
+	RebindingCheckDisable bool
 }
 
 var Configmtx sync.Mutex
@@ -327,6 +328,17 @@ func (b *Block) setRefresh(w http.ResponseWriter, r *http.Request) {
 	b.saveConfig()
 }
 
+func (b *Block) setRebindingDisable(w http.ResponseWriter, r *http.Request) {
+	value := r.URL.Query().Get("value")
+
+	if strings.ToLower(value) == "true" {
+		b.config.RebindingCheckDisable = true
+	} else {
+		b.config.RebindingCheckDisable = false
+	}
+	b.saveConfig()
+}
+
 func logRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if os.Getenv("DEBUGHTTP") != "" && r.URL.String() != "/healthy" {
@@ -343,6 +355,7 @@ func (b *Block) runAPI() {
 
 	unix_plugin_router.HandleFunc("/config", b.showConfig).Methods("GET")
 	unix_plugin_router.HandleFunc("/setRefresh", b.setRefresh).Methods("PUT")
+	unix_plugin_router.HandleFunc("/disableRebinding", b.setRebindingDisable).Methods("PUT")
 	unix_plugin_router.HandleFunc("/override", b.modifyOverrideDomains).Methods("PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/quarantineHost", b.quarantineHost).Methods("PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/blocklists", b.modifyBlockLists).Methods("GET", "PUT", "DELETE")
