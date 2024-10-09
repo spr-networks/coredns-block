@@ -39,7 +39,10 @@ com
 
 	for _, test := range tests {
 		retIP := ""
-		got := b.blocked("1.2.3.4", test.name, &retIP)
+		retCNAME := ""
+		hasPermit := false
+
+		got := b.blocked("1.2.3.4", test.name, &retIP, &retCNAME, &hasPermit)
 		if got != test.blocked {
 			t.Errorf("Expected %s to be blocked", test.name)
 		}

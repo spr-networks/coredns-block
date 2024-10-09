@@ -12,7 +12,7 @@ func TestDownload(t *testing.T) {
 
 	b := new(Block)
 	b.setupDB("/tmp/download.db")
-
+	b.superapi_enabled = true
 	db := BoltOpen(b.DbPath + "-staging")
 
 	lists := []string{"https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
