@@ -133,6 +133,8 @@ func (i *DNSBlockRebindingEvent) String() string {
 	return string(x)
 }
 
+type policyTagKey string
+
 // ServeDNS implements the plugin.Handler interface.
 func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
@@ -142,8 +144,15 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	hasPermit := false
 
 	gMetrics.TotalQueries++
+	clientIP := state.IP()
 
-	if b.blocked(state.IP(), state.Name(), &returnIP, &returnCNAME, &hasPermit) {
+	clientDnsPolicies := b.getClientDnsPolicies(clientIP)
+	if len(clientDnsPolicies) > 0 {
+		k := policyTagKey("DNSPolicies")
+		ctx = context.WithValue(ctx, k, clientDnsPolicies)
+	}
+
+	if b.blocked(clientIP, state.Name(), &returnIP, &returnCNAME, &hasPermit) {
 		gMetrics.BlockedQueries++
 
 		blockCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
@@ -514,12 +523,14 @@ func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *st
 		}
 
 		if IPQuarantined(IP) {
-			target := "0.0.0.0"
+			//in quarantine mode, send all traffic to the QuarantineHostIP
 			if b.config.QuarantineHostIP != "" {
-				target = b.config.QuarantineHostIP
+				*hasPermit = true
+				*returnIP = b.config.QuarantineHostIP
+				return false
 			}
-			*returnIP = target
-			return false
+			//otherwise block the DNS lookup.
+			return true
 		}
 
 		if matchOverride(IP, fullname, name, b.config.PermitDomains, returnIP, returnCNAME) {
@@ -564,6 +575,25 @@ func (b *Block) blocked(IP string, name string, returnIP *string, returnCNAME *s
 	}
 
 	return false
+}
+
+func (b *Block) getClientDnsPolicies(IP string) []string {
+	ret := []string{}
+
+	IPTagmtx.RLock()
+	policies, policy_exists := IPPolicyMap[IP]
+	IPTagmtx.RUnlock()
+
+	//capture policies with the dns: prefix
+	if policy_exists {
+		for _, entry := range policies {
+			if strings.HasPrefix(entry, "dns:") {
+				ret = append(ret, entry)
+			}
+		}
+	}
+
+	return ret
 }
 
 func (b *Block) setupDB(filename string) {
