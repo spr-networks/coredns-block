@@ -138,11 +138,12 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	state := request.Request{W: w, Req: r}
 
 	returnIP := ""
+	returnCNAME := ""
 	hasPermit := false
 
 	gMetrics.TotalQueries++
 
-	if b.blocked(state.IP(), state.Name(), &returnIP, &hasPermit) {
+	if b.blocked(state.IP(), state.Name(), &returnIP, &returnCNAME, &hasPermit) {
 		gMetrics.BlockedQueries++
 
 		blockCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
@@ -197,6 +198,28 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 			w.WriteMsg(resp)
 			return dns.RcodeSuccess, nil
 		}
+	} else if returnCNAME != "" {
+		resp := new(dns.Msg)
+		resp.SetRcode(r, dns.RcodeSuccess)
+
+		name := r.Question[0].Name
+
+		event := DNSOverrideEvent{state.IP(), returnCNAME, name}
+		sprbus.PublishString("dns:override:event", event.String())
+
+		cname := &dns.CNAME{
+			Hdr: dns.RR_Header{
+				Name:   name,
+				Rrtype: dns.TypeCNAME,
+				Class:  dns.ClassINET,
+				Ttl:    1,
+			},
+			Target: returnCNAME,
+		}
+
+		resp.Answer = append(resp.Answer, cname)
+		w.WriteMsg(resp)
+		return dns.RcodeSuccess, nil
 	}
 
 	//now we do a rebinding check if hasPermit is false
@@ -250,7 +273,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 // Name implements the Handler interface.
 func (b *Block) Name() string { return "block" }
 
-func matchOverride(IP string, fullname string, name string, overrides []DomainOverride, returnIP *string) bool {
+func matchOverride(IP string, fullname string, name string, overrides []DomainOverride, returnIP *string, returnCNAME *string) bool {
 
 	cur_time := time.Now().Unix()
 
@@ -266,9 +289,12 @@ func matchOverride(IP string, fullname string, name string, overrides []DomainOv
 			//match wildcard or match IP
 			//now check if domain matches name to make a decision
 			if name == entry.Domain || fullname == entry.Domain {
-				//got a match -> if there is a returnIP set, carry it over
+				//got a match -> set results if available
 				if entry.ResultIP != "" {
 					*returnIP = entry.ResultIP
+				}
+				if entry.ResultCNAME != "" {
+					*returnCNAME = entry.ResultCNAME
 				}
 
 				if len(entry.Tags) > 0 {
@@ -476,7 +502,7 @@ func (b *Block) isRebindingIP(ip net.IP) bool {
 	return false
 }
 
-func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *string, hasPermit *bool) bool {
+func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *string, returnCNAME *string, hasPermit *bool) bool {
 	*hasPermit = false
 	if b.superapi_enabled {
 		// do not block for excluded IPs
@@ -496,13 +522,13 @@ func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *st
 			return false
 		}
 
-		if matchOverride(IP, fullname, name, b.config.PermitDomains, returnIP) {
+		if matchOverride(IP, fullname, name, b.config.PermitDomains, returnIP, returnCNAME) {
 			*hasPermit = true
 			//permit this domain
 			return false
 		}
 
-		if matchOverride(IP, fullname, name, b.config.BlockDomains, returnIP) {
+		if matchOverride(IP, fullname, name, b.config.BlockDomains, returnIP, returnCNAME) {
 			//yes blocked
 			return true
 		}
@@ -523,15 +549,15 @@ func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *st
 	return false
 }
 
-func (b *Block) blocked(IP string, name string, returnIP *string, hasPermit *bool) bool {
+func (b *Block) blocked(IP string, name string, returnIP *string, returnCNAME *string, hasPermit *bool) bool {
 
-	if b.checkBlock(IP, name, name, returnIP, hasPermit) {
+	if b.checkBlock(IP, name, name, returnIP, returnCNAME, hasPermit) {
 		return true
 	}
 
 	i, end := dns.NextLabel(name, 0)
 	for !end {
-		if b.checkBlock(IP, name[i:], name, returnIP, hasPermit) {
+		if b.checkBlock(IP, name[i:], name, returnIP, returnCNAME, hasPermit) {
 			return true
 		}
 		i, end = dns.NextLabel(name, i)

@@ -30,12 +30,13 @@ type ListEntry struct {
 }
 
 type DomainOverride struct {
-	Type       string // Permit or Block
-	Domain     string //
-	ResultIP   string //ip to return
-	ClientIP   string //target to apply to, '*' for all
-	Expiration int64  //if non zero has unix time for when the entry should disappear
-	Tags       []string
+	Type        string // Permit or Block
+	Domain      string //
+	ResultIP    string //ip to return
+	ResultCNAME string
+	ClientIP    string //target to apply to, '*' for all
+	Expiration  int64  //if non zero has unix time for when the entry should disappear
+	Tags        []string
 }
 
 type SPRBlockConfig struct {
