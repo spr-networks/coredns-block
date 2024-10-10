@@ -133,8 +133,6 @@ func (i *DNSBlockRebindingEvent) String() string {
 	return string(x)
 }
 
-type policyTagKey string
-
 // ServeDNS implements the plugin.Handler interface.
 func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
@@ -148,8 +146,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	clientDnsPolicies := b.getClientDnsPolicies(clientIP)
 	if len(clientDnsPolicies) > 0 {
-		k := policyTagKey("DNSPolicies")
-		ctx = context.WithValue(ctx, k, clientDnsPolicies)
+		ctx = context.WithValue(ctx, "DNSPolicies", clientDnsPolicies)
 	}
 
 	if b.blocked(clientIP, state.Name(), &returnIP, &returnCNAME, &hasPermit) {
