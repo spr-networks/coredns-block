@@ -201,7 +201,11 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 			}
 
 			resp.Answer = append(resp.Answer, ans)
-			w.WriteMsg(resp)
+			err := w.WriteMsg(resp)
+			if err != nil {
+				return dns.RcodeNameError, err
+			}
+
 			return dns.RcodeSuccess, nil
 		}
 	} else if returnCNAME != "" {
@@ -224,7 +228,10 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		}
 
 		resp.Answer = append(resp.Answer, cname)
-		w.WriteMsg(resp)
+		err := w.WriteMsg(resp)
+		if err != nil {
+			return dns.RcodeNameError, err
+		}
 		return dns.RcodeSuccess, nil
 	}
 

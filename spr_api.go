@@ -91,6 +91,10 @@ func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
 		if len(entry.Domain) == 0 || (entry.Domain[len(entry.Domain)-1:] != ".") {
 			err = errors.New("domain should end in .")
 		}
+
+		if len(entry.ResultCNAME) > 0 && (entry.ResultCNAME[len(entry.ResultCNAME)-1:] != ".") {
+			err = errors.New("cname domain should end in .")
+		}
 	}
 
 	if err != nil {
