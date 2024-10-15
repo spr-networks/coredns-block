@@ -41,8 +41,9 @@ com
 		retIP := ""
 		retCNAME := ""
 		hasPermit := false
+		categories := []string{}
 
-		got := b.blocked("1.2.3.4", test.name, &retIP, &retCNAME, &hasPermit)
+		got := b.blocked("1.2.3.4", test.name, &retIP, &retCNAME, &hasPermit, &categories)
 		if got != test.blocked {
 			t.Errorf("Expected %s to be blocked", test.name)
 		}

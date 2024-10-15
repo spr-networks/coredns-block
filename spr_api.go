@@ -24,9 +24,11 @@ var UNIX_PLUGIN_LISTENER = TEST_PREFIX + "/state/dns/dns_block_plugin"
 var CONFIG_PATH = TEST_PREFIX + "/state/dns/block_rules.json"
 
 type ListEntry struct {
-	URI     string
-	Enabled bool
-	Tags    []string //tags for which the list applies to
+	URI       string
+	Enabled   bool
+	Tags      []string //tags for which the list applies to
+	Category  string   //category tag to apply
+	DontBlock bool     //if we only annotate category but do not block.
 }
 
 type DomainOverride struct {

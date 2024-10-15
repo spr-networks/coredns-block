@@ -48,7 +48,6 @@ com
 	}{
 		{"example.org.", false},
 		{"com.", true},
-
 		{"005.free-counter.co.uk.", true},
 		{"www.005.free-counter.co.uk.", true},
 		{"008.free-counter.co.uk.", true},
@@ -61,13 +60,13 @@ com
 		retIP := ""
 		retCNAME := ""
 		hasPermit := false
-		got := b.blocked("1.2.3.4", test.name, &retIP, &retCNAME, &hasPermit)
+		categories := []string{}
+		got := b.blocked("1.2.3.4", test.name, &retIP, &retCNAME, &hasPermit, &categories)
 		if got != test.blocked {
 			t.Errorf("Expected %s to be blocked", test.name)
 		}
 	}
 }
-
 
 func TestOverrides(t *testing.T) {
 	var list = `
@@ -135,8 +134,9 @@ com
 	for _, test := range tests {
 		retIP := ""
 		retCNAME := ""
+		categories := []string{}
 		hasPermit := false
-		got := b.blocked("1.2.3.4", test.name, &retIP, &retCNAME, &hasPermit)
+		got := b.blocked("1.2.3.4", test.name, &retIP, &retCNAME, &hasPermit, &categories)
 		if got != test.blocked {
 			if test.blocked == false {
 				t.Errorf("Expected `%s` to be permitted", test.name)

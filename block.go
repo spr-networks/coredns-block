@@ -139,6 +139,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	returnIP := ""
 	returnCNAME := ""
+	categories := []string{}
 	hasPermit := false
 
 	gMetrics.TotalQueries++
@@ -149,7 +150,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		ctx = context.WithValue(ctx, "DNSPolicies", clientDnsPolicies)
 	}
 
-	if b.blocked(clientIP, state.Name(), &returnIP, &returnCNAME, &hasPermit) {
+	if b.blocked(clientIP, state.Name(), &returnIP, &returnCNAME, &hasPermit, &categories) {
 		gMetrics.BlockedQueries++
 
 		blockCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
@@ -162,6 +163,11 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		event := DNSBlockEvent{state.IP(), state.Name()}
 		sprbus.PublishString("dns:block:event", event.String())
 		return dns.RcodeNameError, nil
+	}
+
+	if len(categories) > 0 {
+		//Add DNSCategories to the request context for log, forward.
+		ctx = context.WithValue(ctx, "DNSCategories", categories)
 	}
 
 	// Rewrite a predefined typeA or typeAAAA response
@@ -465,17 +471,20 @@ func IPHasTags(IP string, applied_tags []string) bool {
 	return false
 }
 
-func (b *Block) deviceMatchBlockListTags(IP string, entry DomainValue) bool {
+func (b *Block) deviceMatchBlockListTags(IP string, entry DomainValue, block bool) bool {
 	// a domain was blocked. Check if the list_id has a group specification.
 	// return true if there is no group specification, or the device is
 	// in the specified. If the device is not in a specified group, return false
-
 	BLmtx.RLock()
 	defer BLmtx.RUnlock()
 
 	for _, list_id := range entry.List_ids {
 
 		if list_id >= 0 && int(list_id) < len(b.config.BlockLists) {
+			if b.config.BlockLists[list_id].DontBlock == true {
+				continue
+			}
+
 			applied_tags := b.config.BlockLists[list_id].Tags
 
 			if len(applied_tags) == 0 {
@@ -488,9 +497,8 @@ func (b *Block) deviceMatchBlockListTags(IP string, entry DomainValue) bool {
 		}
 
 	}
-
 	//no list
-	return true
+	return block
 }
 
 func (b *Block) getDomain(name string) (DomainValue, bool) {
@@ -499,6 +507,37 @@ func (b *Block) getDomain(name string) (DomainValue, bool) {
 		return item.Value, true
 	}
 	return DomainValue{}, false
+}
+
+func (b *Block) getDomainInfo(name string) (DomainValue, []string, bool, bool) {
+	entry, exists := b.getDomain(name)
+	categories := []string{}
+	if exists {
+
+		//if all of the lists are set to DontBlock, then dont block it
+		dontBlock := true
+		sawList := false
+		BLmtx.RLock()
+		//get the categories from the list ids
+		for _, list_id := range entry.List_ids {
+			if list_id >= 0 && int(list_id) < len(b.config.BlockLists) {
+				sawList = true
+				cat := b.config.BlockLists[list_id].Category
+				if cat != "" && !slices.Contains(categories, cat) {
+					categories = append(categories, cat)
+				}
+				dontBlock = dontBlock && b.config.BlockLists[list_id].DontBlock
+			}
+		}
+		BLmtx.RUnlock()
+		//if no lists were valid assume blocking behavior.
+		if sawList == false {
+			dontBlock = false
+		}
+		return entry, categories, !dontBlock, true
+	}
+
+	return DomainValue{}, categories, false, false
 }
 
 func (b *Block) isRebindingIP(ip net.IP) bool {
@@ -515,7 +554,7 @@ func (b *Block) isRebindingIP(ip net.IP) bool {
 	return false
 }
 
-func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *string, returnCNAME *string, hasPermit *bool) bool {
+func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *string, returnCNAME *string, hasPermit *bool, categories *[]string) bool {
 	*hasPermit = false
 	if b.superapi_enabled {
 		// do not block for excluded IPs
@@ -551,28 +590,30 @@ func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *st
 	}
 
 	Dmtx.RLock()
-	entry, exists := b.getDomain(name)
+	entry, blockCategories, block, exists := b.getDomainInfo(name)
 	Dmtx.RUnlock()
-
 	if exists && !entry.Disabled {
-		if b.superapi_enabled {
-			return b.deviceMatchBlockListTags(IP, entry)
+		if len(blockCategories) > 0 {
+			*categories = blockCategories
 		}
-		return true
+		if b.superapi_enabled {
+			return b.deviceMatchBlockListTags(IP, entry, block)
+		}
+		return block
 	}
 
 	return false
 }
 
-func (b *Block) blocked(IP string, name string, returnIP *string, returnCNAME *string, hasPermit *bool) bool {
+func (b *Block) blocked(IP string, name string, returnIP *string, returnCNAME *string, hasPermit *bool, categories *[]string) bool {
 
-	if b.checkBlock(IP, name, name, returnIP, returnCNAME, hasPermit) {
+	if b.checkBlock(IP, name, name, returnIP, returnCNAME, hasPermit, categories) {
 		return true
 	}
 
 	i, end := dns.NextLabel(name, 0)
 	for !end {
-		if b.checkBlock(IP, name[i:], name, returnIP, returnCNAME, hasPermit) {
+		if b.checkBlock(IP, name[i:], name, returnIP, returnCNAME, hasPermit, categories) {
 			return true
 		}
 		i, end = dns.NextLabel(name, i)
