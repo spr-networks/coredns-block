@@ -139,7 +139,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	returnIP := ""
 	returnCNAME := ""
-	categories := []string{}
+	new_categories := []string{}
 	hasPermit := false
 
 	gMetrics.TotalQueries++
@@ -150,7 +150,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		ctx = context.WithValue(ctx, "DNSPolicies", clientDnsPolicies)
 	}
 
-	if b.blocked(clientIP, state.Name(), &returnIP, &returnCNAME, &hasPermit, &categories) {
+	if b.blocked(clientIP, state.Name(), &returnIP, &returnCNAME, &hasPermit, &new_categories) {
 		gMetrics.BlockedQueries++
 
 		blockCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
@@ -165,9 +165,11 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		return dns.RcodeNameError, nil
 	}
 
-	if len(categories) > 0 {
-		//Add DNSCategories to the request context for log, forward.
-		ctx = context.WithValue(ctx, "DNSCategories", categories)
+	if len(new_categories) > 0 {
+		categories, ok := ctx.Value("DNSCategories").(*[]string)
+		if ok {
+			*categories = append(*categories, new_categories...)
+		}
 	}
 
 	// Rewrite a predefined typeA or typeAAAA response
