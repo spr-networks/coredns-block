@@ -214,6 +214,8 @@ func (b *Block) modifyBlockLists(w http.ResponseWriter, r *http.Request) {
 			if b.config.BlockLists[i].URI == entry.URI {
 				b.config.BlockLists[i].Enabled = entry.Enabled
 				b.config.BlockLists[i].Tags = entry.Tags
+				b.config.BlockLists[i].DontBlock = entry.DontBlock
+				b.config.BlockLists[i].Category = entry.Category
 
 				found = true
 				break
