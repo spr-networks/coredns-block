@@ -20,9 +20,6 @@ var DLmtx sync.RWMutex
 func (b *Block) dbStagingDownload(db *bolt.DB, url string, list_id int) error {
 	var err error
 
-	Stagemtx.Lock()
-	defer Stagemtx.Unlock()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
 	defer cancel()
 
