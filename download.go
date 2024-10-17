@@ -38,6 +38,7 @@ func (b *Block) dbStagingDownload(db *bolt.DB, url string, list_id int) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		// handle error
+		fmt.Println("Download Request failed", err)
 		return err
 	}
 
