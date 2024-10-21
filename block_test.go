@@ -101,7 +101,10 @@ com
 	ip_permit := DomainOverride{"Permit", "ip.permit.com.", "1.1.1.1", "", "*", 0, []string{}}
 	cname_permit := DomainOverride{"Permit", "cname.permit.com.", "", "safesearch.permit.com", "*", 0, []string{}}
 
-	b.config.PermitDomains = []DomainOverride{permit, ip_permit, cname_permit}
+	override := OverrideList{}
+	override.PermitDomains = []DomainOverride{permit, ip_permit, cname_permit}
+	override.Enabled = true
+	b.config.OverrideLists = []OverrideList{override}
 
 	_, found := b.getDomain("no.exist")
 	if found {
