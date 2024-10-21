@@ -21,7 +21,8 @@ import (
 var TEST_PREFIX = os.Getenv("TEST_PREFIX")
 
 var UNIX_PLUGIN_LISTENER = TEST_PREFIX + "/state/dns/dns_block_plugin"
-var CONFIG_PATH = TEST_PREFIX + "/state/dns/block_rules.json"
+var OLD_CONFIG_PATH = TEST_PREFIX + "/state/dns/block_rules.json"
+var CONFIG_PATH = TEST_PREFIX + "/configs/dns/block_rules.json"
 
 type ListEntry struct {
 	URI       string
@@ -41,7 +42,15 @@ type DomainOverride struct {
 	Tags        []string
 }
 
-type SPRBlockConfig struct {
+type OverrideList struct {
+	PermitDomains []DomainOverride
+	BlockDomains  []DomainOverride
+	Enabled       bool
+	Tags          []string
+	Name          string
+}
+
+type SPRBlockConfigOld struct {
 	BlockLists            []ListEntry //list of URIs with DNS block lists
 	PermitDomains         []DomainOverride
 	BlockDomains          []DomainOverride
@@ -51,7 +60,67 @@ type SPRBlockConfig struct {
 	RebindingCheckDisable bool
 }
 
+type SPRBlockConfig struct {
+	BlockLists            []ListEntry //list of URIs with DNS block lists
+	OverrideLists         []OverrideList
+	ClientIPExclusions    []string //these IPs should not have ad blocking
+	RefreshSeconds        int
+	QuarantineHostIP      string //for devices in quarantine mode
+	RebindingCheckDisable bool
+}
+
 var Configmtx sync.Mutex
+
+func (b *Block) MigrateConfig() {
+	Configmtx.Lock()
+	defer Configmtx.Unlock()
+
+	_, err := os.Stat(CONFIG_PATH)
+	if err == nil {
+		return
+	}
+
+	//config does not exist yet. check fo the old one and migrate it
+	_, err = os.Stat(OLD_CONFIG_PATH)
+	if err != nil {
+		//new install, skip
+		return
+	}
+
+	//read the old config and migrate it
+	var oldConfig SPRBlockConfigOld
+	data, err := ioutil.ReadFile(OLD_CONFIG_PATH)
+	err = json.Unmarshal(data, &oldConfig)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+
+	b.config.BlockLists = oldConfig.BlockLists
+	b.config.ClientIPExclusions = oldConfig.ClientIPExclusions
+	b.config.RefreshSeconds = oldConfig.RefreshSeconds
+	b.config.QuarantineHostIP = oldConfig.QuarantineHostIP
+	b.config.RebindingCheckDisable = oldConfig.RebindingCheckDisable
+
+
+	overrides := OverrideList{}
+	overrides.PermitDomains = oldConfig.PermitDomains
+	overrides.BlockDomains = oldConfig.BlockDomains
+	overrides.Name = "Default"
+	overrides.Enabled = true
+	overrides.Tags = []string{}
+
+	b.config.OverrideLists = []OverrideList{overrides}
+
+	//save the new configuration.
+
+	file, _ := json.MarshalIndent(b.config, "", " ")
+	err = ioutil.WriteFile(CONFIG_PATH, file, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+}
 
 func (b *Block) loadSPRConfig() {
 	Configmtx.Lock()
@@ -63,17 +132,18 @@ func (b *Block) loadSPRConfig() {
 	}
 }
 
-func (b *Block) saveConfig() {
-	Configmtx.Lock()
-	defer Configmtx.Unlock()
-
-	//prune expired DomainOverrides here
-
+func (b *Block) saveConfigLocked() {
 	file, _ := json.MarshalIndent(b.config, "", " ")
 	err := ioutil.WriteFile(CONFIG_PATH, file, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func (b *Block) saveConfig() {
+	Configmtx.Lock()
+	defer Configmtx.Unlock()
+	b.saveConfigLocked()
 }
 
 func (b *Block) showConfig(w http.ResponseWriter, r *http.Request) {
@@ -83,8 +153,71 @@ func (b *Block) showConfig(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(b.config)
 }
 
+func (b *Block) modifyOverrideList(w http.ResponseWriter, r *http.Request) {
+	//this routine can set Enabled, Name, Tags, and delete lists altogether
+	// to update a permit/block entry modifyOverrideDomains must be called.
+	listName := mux.Vars(r)["list"]
+
+	entry := OverrideList{}
+	err := json.NewDecoder(r.Body).Decode(&entry)
+
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	if entry.Name != listName {
+		//sanity check
+		http.Error(w, "Override List Name Mismatch", 400)
+		return
+	}
+
+	if entry.Tags == nil {
+		entry.Tags = []string{}
+	}
+
+	Configmtx.Lock()
+	defer Configmtx.Unlock()
+
+	foundIdx := -1
+	//find that override list
+	for idx, entry := range b.config.OverrideLists {
+		if entry.Name == listName {
+			foundIdx = idx
+			break
+		}
+	}
+
+	if foundIdx == -1 {
+		foundIdx = len(b.config.OverrideLists)
+		b.config.OverrideLists = append(b.config.OverrideLists, entry)
+	} else {
+		b.config.OverrideLists[foundIdx].Tags = entry.Tags
+		b.config.OverrideLists[foundIdx].Enabled = entry.Enabled
+	}
+
+	b.saveConfigLocked()
+}
+
 func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
 	var overrides *[]DomainOverride = nil
+
+	listName := mux.Vars(r)["list"]
+
+	var overrideList OverrideList
+	var foundIdx = -1
+
+	Configmtx.Lock()
+	defer Configmtx.Unlock()
+
+	//find that override list
+	for idx, entry := range b.config.OverrideLists {
+		if entry.Name == listName {
+			overrideList = entry
+			foundIdx = idx
+			break
+		}
+	}
 
 	entry := DomainOverride{}
 	err := json.NewDecoder(r.Body).Decode(&entry)
@@ -105,9 +238,9 @@ func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.ToLower(entry.Type) == "permit" {
-		overrides = &b.config.PermitDomains
+		overrides = &overrideList.PermitDomains
 	} else if strings.ToLower(entry.Type) == "block" {
-		overrides = &b.config.BlockDomains
+		overrides = &overrideList.BlockDomains
 	} else {
 		http.Error(w, "Unexpected Override Type", 400)
 		return
@@ -134,7 +267,6 @@ func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
 			(*overrides) = append((*overrides), entry)
 		}
 
-		b.saveConfig()
 	} else if r.Method == http.MethodDelete {
 		found := -1
 		for i, _ := range *overrides {
@@ -150,9 +282,18 @@ func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
 		}
 
 		(*overrides) = append((*overrides)[:found], (*overrides)[found+1:]...)
-		b.saveConfig()
 	}
 
+	if foundIdx == -1 {
+		overrideList.Name = listName
+		overrideList.Enabled = true
+		overrideList.Tags = []string{}
+		b.config.OverrideLists = append(b.config.OverrideLists, overrideList)
+	} else {
+		b.config.OverrideLists[foundIdx] = overrideList
+	}
+
+	b.saveConfigLocked()
 }
 
 func (b *Block) quarantineHost(w http.ResponseWriter, r *http.Request) {
@@ -358,6 +499,7 @@ func logRequest(handler http.Handler) http.Handler {
 }
 
 func (b *Block) runAPI() {
+	b.MigrateConfig()
 	b.loadSPRConfig()
 
 	unix_plugin_router := mux.NewRouter().StrictSlash(true)
@@ -365,7 +507,8 @@ func (b *Block) runAPI() {
 	unix_plugin_router.HandleFunc("/config", b.showConfig).Methods("GET")
 	unix_plugin_router.HandleFunc("/setRefresh", b.setRefresh).Methods("PUT")
 	unix_plugin_router.HandleFunc("/disableRebinding", b.setRebindingDisable).Methods("PUT")
-	unix_plugin_router.HandleFunc("/override", b.modifyOverrideDomains).Methods("PUT", "DELETE")
+	unix_plugin_router.HandleFunc("/override/{list}", b.modifyOverrideDomains).Methods("PUT", "DELETE")
+	unix_plugin_router.HandleFunc("/overrideList/{list}", b.modifyOverrideList).Methods("PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/quarantineHost", b.quarantineHost).Methods("PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/blocklists", b.modifyBlockLists).Methods("GET", "PUT", "DELETE")
 	unix_plugin_router.HandleFunc("/exclusions", b.modifyExclusions).Methods("GET", "PUT", "DELETE")

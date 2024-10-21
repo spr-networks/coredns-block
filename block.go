@@ -578,16 +578,21 @@ func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *st
 			return true
 		}
 
-		if matchOverride(IP, fullname, name, b.config.PermitDomains, returnIP, returnCNAME) {
-			*hasPermit = true
-			//permit this domain
-			return false
+		//go and check each override
+
+		for _, overrideList := range b.config.OverrideLists {
+			if matchOverride(IP, fullname, name, overrideList.PermitDomains, returnIP, returnCNAME) {
+				*hasPermit = true
+				//permit this domain
+				return false
+			}
+
+			if matchOverride(IP, fullname, name, overrideList.BlockDomains, returnIP, returnCNAME) {
+				//yes blocked
+				return true
+			}
 		}
 
-		if matchOverride(IP, fullname, name, b.config.BlockDomains, returnIP, returnCNAME) {
-			//yes blocked
-			return true
-		}
 
 	}
 
