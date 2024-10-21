@@ -593,7 +593,6 @@ func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *st
 			}
 		}
 
-
 	}
 
 	Dmtx.RLock()

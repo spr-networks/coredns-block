@@ -95,13 +95,11 @@ func (b *Block) MigrateConfig() {
 		fmt.Println(err)
 	}
 
-
 	b.config.BlockLists = oldConfig.BlockLists
 	b.config.ClientIPExclusions = oldConfig.ClientIPExclusions
 	b.config.RefreshSeconds = oldConfig.RefreshSeconds
 	b.config.QuarantineHostIP = oldConfig.QuarantineHostIP
 	b.config.RebindingCheckDisable = oldConfig.RebindingCheckDisable
-
 
 	overrides := OverrideList{}
 	overrides.PermitDomains = oldConfig.PermitDomains
@@ -185,6 +183,16 @@ func (b *Block) modifyOverrideList(w http.ResponseWriter, r *http.Request) {
 		if entry.Name == listName {
 			foundIdx = idx
 			break
+		}
+	}
+
+	if r.Method == http.MethodDelete {
+		if foundIdx == -1 {
+			http.Error(w, "Not found", 404)
+			return
+		} else {
+			b.config.OverrideLists = append(b.config.OverrideLists[:foundIdx], b.config.OverrideLists[foundIdx+1:]...)
+			return
 		}
 	}
 
