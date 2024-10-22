@@ -581,6 +581,20 @@ func (b *Block) checkBlock(IP string, name string, fullname string, returnIP *st
 		//go and check each override
 
 		for _, overrideList := range b.config.OverrideLists {
+
+			//skip disabled list
+			if overrideList.Enabled == false {
+				continue
+			}
+
+			//if the override has a tag, make sure the client also has the tag
+			if b.superapi_enabled && len(overrideList.Tags) > 0 {
+				// client needs tags for these overrides to apply
+				if !IPHasTags(IP, overrideList.Tags) {
+					continue
+				}
+			}
+
 			if matchOverride(IP, fullname, name, overrideList.PermitDomains, returnIP, returnCNAME) {
 				*hasPermit = true
 				//permit this domain
