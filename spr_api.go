@@ -192,16 +192,15 @@ func (b *Block) modifyOverrideList(w http.ResponseWriter, r *http.Request) {
 			return
 		} else {
 			b.config.OverrideLists = append(b.config.OverrideLists[:foundIdx], b.config.OverrideLists[foundIdx+1:]...)
-			return
 		}
-	}
-
-	if foundIdx == -1 {
-		foundIdx = len(b.config.OverrideLists)
-		b.config.OverrideLists = append(b.config.OverrideLists, entry)
 	} else {
-		b.config.OverrideLists[foundIdx].Tags = entry.Tags
-		b.config.OverrideLists[foundIdx].Enabled = entry.Enabled
+		if foundIdx == -1 {
+			foundIdx = len(b.config.OverrideLists)
+			b.config.OverrideLists = append(b.config.OverrideLists, entry)
+		} else {
+			b.config.OverrideLists[foundIdx].Tags = entry.Tags
+			b.config.OverrideLists[foundIdx].Enabled = entry.Enabled
+		}
 	}
 
 	b.saveConfigLocked()

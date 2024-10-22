@@ -1,0 +1,106 @@
+{
+ "BlockLists": [
+  {
+   "URI": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
+   "Enabled": true,
+   "Tags": null,
+   "Category": "ads",
+   "DontBlock": false
+  },
+  {
+   "URI": "https://raw.githubusercontent.com/blocklistproject/Lists/master/ads.txt",
+   "Enabled": true,
+   "Tags": [
+    "boring-people"
+   ],
+   "Category": "ads",
+   "DontBlock": false
+  },
+  {
+   "URI": "https://raw.githubusercontent.com/blocklistproject/Lists/master/malware.txt",
+   "Enabled": true,
+   "Tags": null,
+   "Category": "malware",
+   "DontBlock": false
+  },
+  {
+   "URI": "https://raw.githubusercontent.com/blocklistproject/Lists/master/facebook.txt",
+   "Enabled": true,
+   "Tags": [
+    "person:alex"
+   ],
+   "Category": "social",
+   "DontBlock": true
+  },
+  {
+   "URI": "https://raw.githubusercontent.com/blocklistproject/Lists/master/twitter.txt",
+   "Enabled": true,
+   "Tags": null,
+   "Category": "social",
+   "DontBlock": true
+  },
+  {
+   "URI": "https://raw.githubusercontent.com/blocklistproject/Lists/master/youtube.txt",
+   "Enabled": true,
+   "Tags": null,
+   "Category": "social",
+   "DontBlock": true
+  },
+  {
+   "URI": "https://raw.githubusercontent.com/blocklistproject/Lists/master/porn.txt",
+   "Enabled": true,
+   "Tags": null,
+   "Category": "adult",
+   "DontBlock": true
+  }
+ ],
+ "OverrideLists": [
+  {
+   "PermitDomains": [
+    {
+     "Type": "permit",
+     "Domain": "www.blah.com.",
+     "ResultIP": "",
+     "ResultCNAME": "override.cname.blah.com.",
+     "ClientIP": "*",
+     "Expiration": 0,
+     "Tags": null
+    },
+    {
+     "Type": "permit",
+     "Domain": "asdf.blah.com.",
+     "ResultIP": "",
+     "ResultCNAME": "newasdf.asdf.com.",
+     "ClientIP": "*",
+     "Expiration": 0,
+     "Tags": null
+    }
+   ],
+   "BlockDomains": null,
+   "Enabled": true,
+   "Tags": [],
+   "Name": "Default"
+  },
+  {
+   "PermitDomains": null,
+   "BlockDomains": [
+    {
+     "Type": "block",
+     "Domain": "asdf.com.",
+     "ResultIP": "",
+     "ResultCNAME": "",
+     "ClientIP": "*",
+     "Expiration": 0,
+     "Tags": null
+    }
+   ],
+   "Enabled": true,
+   "Tags": [],
+   "Name": "undefined"
+  }
+ ],
+ "ClientIPExclusions": null,
+ "RefreshSeconds": 3600,
+ "QuarantineHostIP": "",
+ "RebindingCheckDisable": false
+}
