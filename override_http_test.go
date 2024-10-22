@@ -3,15 +3,15 @@ package block
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-  "fmt"
 )
 
 func TestModifyOverrideList(t *testing.T) {
-  CONFIG_PATH = "./test_data/block_rules.json"
+	CONFIG_PATH = "./test_data/block_rules.json"
 
 	// Create a new test block
 	b := New()
@@ -55,7 +55,7 @@ func TestModifyOverrideList(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 		},
-    {
+		{
 			name:     "Second Delete Fails",
 			method:   "DELETE",
 			listName: "testlist",
@@ -93,7 +93,7 @@ func TestModifyOverrideList(t *testing.T) {
 		})
 	}
 
-  fmt.Println("[=]")
+	fmt.Println("[=]")
 }
 
 // Helper function to create a test request with mux vars

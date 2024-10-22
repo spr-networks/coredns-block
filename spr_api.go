@@ -156,6 +156,11 @@ func (b *Block) modifyOverrideList(w http.ResponseWriter, r *http.Request) {
 	// to update a permit/block entry modifyOverrideDomains must be called.
 	listName := mux.Vars(r)["list"]
 
+	if listName == "Default" {
+		http.Error(w, "Default not deletable", 400)
+		return
+	}
+
 	entry := OverrideList{}
 	err := json.NewDecoder(r.Body).Decode(&entry)
 
