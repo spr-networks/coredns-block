@@ -268,7 +268,7 @@ func (b *Block) modifyOverrideDomains(w http.ResponseWriter, r *http.Request) {
 
 		found := false
 		for i, _ := range *overrides {
-			if (*overrides)[i].Domain == entry.Domain {
+			if (*overrides)[i].Domain == entry.Domain && (*overrides)[i].ClientIP == entry.ClientIP {
 				(*overrides)[i] = entry
 				found = true
 				break
