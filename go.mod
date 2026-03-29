@@ -8,7 +8,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/miekg/dns v1.1.72
 	github.com/prometheus/client_golang v1.23.2
-	github.com/spr-networks/sprbus v0.1.9
+	github.com/spr-networks/sprbus-json v0.0.0
 	go.etcd.io/bbolt v1.4.3
 )
 
@@ -42,3 +42,5 @@ require (
 	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
+
+replace github.com/spr-networks/sprbus-json => ../sprbus-json
