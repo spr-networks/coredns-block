@@ -22,7 +22,7 @@ import (
 
 	"github.com/miekg/dns"
 
-	"github.com/spr-networks/sprbus"
+	"github.com/spr-networks/sprbus-json"
 )
 
 import bolt "go.etcd.io/bbolt"

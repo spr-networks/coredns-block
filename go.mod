@@ -8,7 +8,6 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/miekg/dns v1.1.72
 	github.com/prometheus/client_golang v1.23.2
-	github.com/spr-networks/sprbus v0.1.9
 	go.etcd.io/bbolt v1.4.3
 )
 
@@ -18,7 +17,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
-	github.com/moby/pubsub v1.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pires/go-proxyproto v0.11.0 // indirect
@@ -28,6 +26,7 @@ require (
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
+	github.com/spr-networks/sprbus-json v0.0.0-20260611214740-99ea46b83932
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/mock v0.6.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
