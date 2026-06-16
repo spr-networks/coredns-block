@@ -44,6 +44,7 @@ func setup(c *caddy.Controller) error {
 				//spr is enabled
 				if block.superapi_enabled {
 					block.loadSPRConfig()
+					go block.gcOverridesLoop()
 				}
 
 				if block.superapi_enabled {

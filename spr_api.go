@@ -144,6 +144,49 @@ func (b *Block) saveConfig() {
 	b.saveConfigLocked()
 }
 
+func (b *Block) gcExpiredOverrides() {
+	Configmtx.Lock()
+	defer Configmtx.Unlock()
+
+	now := time.Now().Unix()
+	changed := false
+
+	dropExpired := func(entries []DomainOverride) []DomainOverride {
+		kept := make([]DomainOverride, 0, len(entries))
+		for _, entry := range entries {
+			if entry.Expiration != 0 && entry.Expiration <= now {
+				changed = true
+				continue
+			}
+			kept = append(kept, entry)
+		}
+		return kept
+	}
+
+	for i := range b.config.OverrideLists {
+		b.config.OverrideLists[i].PermitDomains = dropExpired(b.config.OverrideLists[i].PermitDomains)
+		b.config.OverrideLists[i].BlockDomains = dropExpired(b.config.OverrideLists[i].BlockDomains)
+	}
+
+	if changed {
+		b.saveConfigLocked()
+	}
+}
+
+func (b *Block) gcOverridesLoop() {
+	b.gcExpiredOverrides()
+	tick := time.NewTicker(1 * time.Minute)
+	defer tick.Stop()
+	for {
+		select {
+		case <-tick.C:
+			b.gcExpiredOverrides()
+		case <-b.stop:
+			return
+		}
+	}
+}
+
 func (b *Block) showConfig(w http.ResponseWriter, r *http.Request) {
 	//reload
 	b.loadSPRConfig()
