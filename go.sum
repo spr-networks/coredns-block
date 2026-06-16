@@ -77,8 +77,8 @@ github.com/quic-go/quic-go v0.60.0 h1:xcQioE8OM66UQLeUMHltK1CCcOu3JbVB4JAQdDQSB+
 github.com/quic-go/quic-go v0.60.0/go.mod h1:wpKpjmPpftl30sL6pFh7REVpjbcCVy4zt2vDyK1TuJk=
 github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w=
 github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
-github.com/spr-networks/sprbus-json v0.0.0-20260611214740-99ea46b83932 h1:G1Zzci7lenHgusMit8UODQymKK/L344XCICpqLmDSok=
-github.com/spr-networks/sprbus-json v0.0.0-20260611214740-99ea46b83932/go.mod h1:oku2mJZCksQjGqH//DfqB5/e+W0nLLPxSEkdqK9xDFI=
+github.com/spr-networks/sprbus-json v0.0.0-20260616150305-efdec19847c8 h1:SGgIvmleEnqfBRLXfxpOAKOF5v88Alo9lFe0TDuC/KY=
+github.com/spr-networks/sprbus-json v0.0.0-20260616150305-efdec19847c8/go.mod h1:oku2mJZCksQjGqH//DfqB5/e+W0nLLPxSEkdqK9xDFI=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=

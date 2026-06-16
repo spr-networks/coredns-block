@@ -40,7 +40,7 @@ require (
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.60.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
-	github.com/spr-networks/sprbus-json v0.0.0-20260611214740-99ea46b83932
+	github.com/spr-networks/sprbus-json v0.0.0-20260616150305-efdec19847c8
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/mock v0.6.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
