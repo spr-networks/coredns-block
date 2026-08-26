@@ -8,6 +8,7 @@ import (
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+	berrors "go.etcd.io/bbolt/errors"
 )
 
 //import "fmt"
@@ -178,27 +179,79 @@ func getItem(db *bolt.DB, bucket string, key string) (error, BucketItem) {
 	return err, bucketItem
 }
 
-func BoltOpen(filename string) *bolt.DB {
+type boltPanicError struct {
+	value interface{}
+}
+
+func (e *boltPanicError) Error() string {
+	return fmt.Sprintf("bbolt panic: %v", e.value)
+}
+
+func openBolt(filename string) (db *bolt.DB, err error) {
 	options := &bolt.Options{Timeout: 1 * time.Second, NoSync: true}
 
-	db, err := bolt.Open(filename, 0664, options)
+	defer func() {
+		if value := recover(); value != nil {
+			if db != nil {
+				_ = db.Close()
+			}
+			db = nil
+			err = &boltPanicError{value: value}
+		}
+	}()
+
+	db, err = bolt.Open(filename, 0664, options)
 	if err != nil {
-		log.Fatal("Failed to open ", filename, err)
+		return nil, err
 	}
 
 	err = db.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(gDomainBucket))
-		if err != nil {
-			log.Fatal("could not create bucket", err)
-		}
-
-		return nil
+		return err
 	})
 
 	if err != nil {
-		log.Fatal("Failed to make bucket", err)
-	} else {
-		db.Sync()
+		_ = db.Close()
+		return nil, err
+	}
+
+	if err = db.Sync(); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+
+	return db, nil
+}
+
+func isBoltCorruption(err error) bool {
+	var panicErr *boltPanicError
+	return errors.As(err, &panicErr) ||
+		errors.Is(err, berrors.ErrInvalid) ||
+		errors.Is(err, berrors.ErrVersionMismatch) ||
+		errors.Is(err, berrors.ErrChecksum)
+}
+
+func BoltOpen(filename string) *bolt.DB {
+	db, err := openBolt(filename)
+	if err == nil {
+		return db
+	}
+
+	if !isBoltCorruption(err) {
+		log.Fatal("Failed to open ", filename, err)
+		return nil
+	}
+
+	log.Warningf("Recovering database %q after open failure: %v", filename, err)
+	if removeErr := os.Remove(filename); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+		log.Fatal("Failed to recover ", filename, removeErr)
+		return nil
+	}
+
+	db, err = openBolt(filename)
+	if err != nil {
+		log.Fatal("Failed to recover ", filename, err)
+		return nil
 	}
 
 	return db
