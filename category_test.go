@@ -36,6 +36,7 @@ func TestCategory(t *testing.T) {
 			log.Fatal("failed to download", err)
 		}
 	}
+	b.loadIndex()
 
 	retIP := ""
 	retCNAME := ""

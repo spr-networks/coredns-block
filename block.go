@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -56,6 +57,7 @@ type Block struct {
 
 	Db     *bolt.DB
 	DbPath string
+	index  atomic.Pointer[blockIndex]
 	Next   plugin.Handler
 }
 
@@ -142,7 +144,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	new_categories := []string{}
 	hasPermit := false
 
-	gMetrics.TotalQueries++
+	atomic.AddInt64(&gMetrics.TotalQueries, 1)
 	clientIP := state.IP()
 
 	clientDnsPolicies := b.getClientDnsPolicies(clientIP)
@@ -151,7 +153,7 @@ func (b *Block) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	}
 
 	if b.blocked(clientIP, state.Name(), &returnIP, &returnCNAME, &hasPermit, &new_categories) {
-		gMetrics.BlockedQueries++
+		atomic.AddInt64(&gMetrics.BlockedQueries, 1)
 
 		blockCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
 		log.Infof("Blocked %s", state.Name())
@@ -338,7 +340,7 @@ func (b *Block) dumpEntries(w http.ResponseWriter, r *http.Request) {
 	Dmtx.Lock()
 
 	err, items := getItems(b.Db, gDomainBucket)
-	if err != nil {
+	if err == nil {
 		for _, v := range items {
 			domains = append(domains, v.Key)
 		}
@@ -504,11 +506,15 @@ func (b *Block) deviceMatchBlockListTags(IP string, entry DomainValue, block boo
 }
 
 func (b *Block) getDomain(name string) (DomainValue, bool) {
-	err, item := getItem(b.Db, gDomainBucket, name)
-	if err == nil {
-		return item.Value, true
+	idx := b.index.Load()
+	if idx == nil {
+		return DomainValue{}, false
 	}
-	return DomainValue{}, false
+	id, exists, err := idx.fst.Get([]byte(name))
+	if err != nil || !exists {
+		return DomainValue{}, false
+	}
+	return idx.sets[id], true
 }
 
 func (b *Block) getDomainInfo(name string) (DomainValue, []string, bool, bool) {
@@ -668,6 +674,9 @@ func (b *Block) setupDB(filename string) {
 
 	b.Db = BoltOpen(filename)
 	b.DbPath = filename
+	if err := b.loadIndex(); err != nil {
+		log.Warningf("Failed to build block index: %v", err)
+	}
 
-	gMetrics.BlockedDomains = getCount(b.Db, gDomainBucket)
+	atomic.StoreInt64(&gMetrics.BlockedDomains, getCount(b.Db, gDomainBucket))
 }

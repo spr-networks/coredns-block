@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -518,7 +519,11 @@ func (b *Block) modifyExclusions(w http.ResponseWriter, r *http.Request) {
 
 func (b *Block) getMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(gMetrics)
+	json.NewEncoder(w).Encode(BlockMetrics{
+		TotalQueries:   atomic.LoadInt64(&gMetrics.TotalQueries),
+		BlockedQueries: atomic.LoadInt64(&gMetrics.BlockedQueries),
+		BlockedDomains: atomic.LoadInt64(&gMetrics.BlockedDomains),
+	})
 }
 
 func (b *Block) setRefresh(w http.ResponseWriter, r *http.Request) {

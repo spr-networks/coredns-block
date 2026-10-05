@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -76,6 +77,7 @@ func (b *Block) dbStagingDownload(db *bolt.DB, url string, list_id int) error {
 		return err
 	case <-ctx.Done():
 		// timeout
+		<-done
 		fmt.Println("context cancelled, reason:", ctx.Err())
 		return errors.New("processing list timed out for " + url)
 	}
@@ -147,7 +149,7 @@ func (b *Block) download() {
 			b.update = make(map[string]DomainValue)
 		}
 
-		log.Infof("Block lists updated: %d domains added", gMetrics.BlockedDomains)
+		log.Infof("Block lists updated: %d domains added", atomic.LoadInt64(&gMetrics.BlockedDomains))
 	}()
 }
 func (b *Block) ShouldRetryRefresh() bool {
@@ -157,7 +159,7 @@ func (b *Block) ShouldRetryRefresh() bool {
 	}
 
 	//already have some blocked, dont retry
-	if gMetrics.BlockedDomains != 0 {
+	if atomic.LoadInt64(&gMetrics.BlockedDomains) != 0 {
 		return false
 	}
 

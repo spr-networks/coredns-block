@@ -3,6 +3,7 @@ module github.com/spr-networks/coredns-block
 go 1.25.0
 
 require (
+	github.com/blevesearch/vellum v1.2.0
 	github.com/coredns/caddy v1.1.4
 	github.com/coredns/coredns v1.14.4
 	github.com/gorilla/mux v1.8.1
@@ -12,6 +13,8 @@ require (
 )
 
 require (
+	github.com/bits-and-blooms/bitset v1.24.2 // indirect
+	github.com/blevesearch/mmap-go v1.2.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect

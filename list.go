@@ -10,7 +10,7 @@ import (
 func lineRead(txt string) (bool, string) {
 	var ignoreDomains = [...]string{"localhost.", "localhost.localdomain.", "local.", "broadcasthost.", "localhost.", "ip6-localhost.", "ip6-loopback.", "localhost.", "ip6-localnet.", "ip6-mcastprefix.", "ip6-allnodes.", "ip6-allrouters.", "ip6-allhosts.", "0.0.0.0"}
 
-	if strings.HasPrefix("#", txt) {
+	if strings.HasPrefix(txt, "#") {
 		return false, ""
 	}
 
@@ -43,7 +43,7 @@ func listRead(r io.Reader, list map[string]DomainValue, list_id int) error {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		txt := scanner.Text()
-		if strings.HasPrefix("#", txt) {
+		if strings.HasPrefix(txt, "#") {
 			continue
 		}
 		var domain string

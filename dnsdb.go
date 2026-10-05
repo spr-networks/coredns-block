@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
+	"sync/atomic"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -269,8 +271,11 @@ func storeBatch(db *bolt.DB, domains []string, idx int, list_id int) error {
 			value := DomainValue{[]int{list_id}, false}
 			//see if bucket already has it
 			err, item := getItemBucket(bucket, domain)
-			if err != nil {
+			if err == nil {
 				//add this  current list_id to it.
+				if slices.Contains(item.Value.List_ids, list_id) {
+					continue
+				}
 				value.List_ids = append(item.Value.List_ids, list_id)
 			}
 
@@ -301,8 +306,11 @@ func (b *Block) transferStagingDB() error {
 	}
 
 	b.Db = BoltOpen(b.DbPath)
+	if err := b.loadIndex(); err != nil {
+		log.Warningf("Failed to build block index: %v", err)
+	}
 
-	gMetrics.BlockedDomains = getCount(b.Db, gDomainBucket)
+	atomic.StoreInt64(&gMetrics.BlockedDomains, getCount(b.Db, gDomainBucket))
 
 	return nil
 }
@@ -331,8 +339,11 @@ func (b *Block) UpdateDomains(update map[string]DomainValue) error {
 		return err
 	}
 	b.Db.Sync()
+	if err := b.loadIndex(); err != nil {
+		return err
+	}
 
-	gMetrics.BlockedDomains = getCount(b.Db, gDomainBucket)
+	atomic.StoreInt64(&gMetrics.BlockedDomains, getCount(b.Db, gDomainBucket))
 
 	return nil
 }
