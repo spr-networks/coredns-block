@@ -346,6 +346,9 @@ func (b *Block) dumpEntries(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	b.Db.Close()
+	b.Db = BoltOpen(b.DbPath)
+
 	Dmtx.Unlock()
 
 	if err != nil {
@@ -677,6 +680,4 @@ func (b *Block) setupDB(filename string) {
 	if err := b.loadIndex(); err != nil {
 		log.Warningf("Failed to build block index: %v", err)
 	}
-
-	atomic.StoreInt64(&gMetrics.BlockedDomains, getCount(b.Db, gDomainBucket))
 }

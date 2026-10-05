@@ -2,6 +2,7 @@ package block
 
 import (
 	"bytes"
+	"sync/atomic"
 
 	"github.com/blevesearch/vellum"
 	bolt "go.etcd.io/bbolt"
@@ -62,5 +63,9 @@ func (b *Block) loadIndex() error {
 		return err
 	}
 	b.index.Store(idx)
+	atomic.StoreInt64(&gMetrics.BlockedDomains, int64(idx.fst.Len()))
+
+	b.Db.Close()
+	b.Db = BoltOpen(b.DbPath)
 	return nil
 }

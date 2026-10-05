@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"sync/atomic"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -310,8 +309,6 @@ func (b *Block) transferStagingDB() error {
 		log.Warningf("Failed to build block index: %v", err)
 	}
 
-	atomic.StoreInt64(&gMetrics.BlockedDomains, getCount(b.Db, gDomainBucket))
-
 	return nil
 }
 
@@ -342,8 +339,6 @@ func (b *Block) UpdateDomains(update map[string]DomainValue) error {
 	if err := b.loadIndex(); err != nil {
 		return err
 	}
-
-	atomic.StoreInt64(&gMetrics.BlockedDomains, getCount(b.Db, gDomainBucket))
 
 	return nil
 }
